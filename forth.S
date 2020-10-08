@@ -542,7 +542,7 @@
 
 /* DOCOL - the interpreter! */
 // 	.text
-// 	.align 4
+// 	.balign 4
 // DOCOL:
 // 	PUSHRSP %esi		// push %esi on to the return stack
 // 	addl $4,%eax		// %eax points to codeword, so make
@@ -550,11 +550,11 @@
 // 	NEXT
 
 	.text
-	.align 4
+	.balign 4
 DOCOL:
-	PUSHRSP s1		// push s1 on to the return stack
+	PUSHRSP s1			// push s1 on to the return stack
 	addiw a0, a0, +4 	// a0 points to codeword, so make
-	lw s1, a0               // s1 point to first data word
+	lw s1, 0(a0)        // s1 point to first data word
 	NEXT
 
 /*
@@ -694,14 +694,13 @@ DOUBLE: .int DOCOL		// codeword
 
 	.macro defword name, namelen, flags=0, label
 	.section .rodata
-	.align 4
+	.balign 4
 	.globl name_\label
 name_\label :
-	.int link		// link
-	.set link,name_\label
+	.int name_\label		// link
 	.byte \flags+\namelen	// flags + length byte
 	.ascii "\name"		// the name
-	.align 4		// padding to next 4 byte boundary
+	.balign 4		// padding to next 4 byte boundary
 	.globl \label
 \label :
 	.int DOCOL		// codeword - the interpreter
@@ -732,19 +731,18 @@ name_\label :
 
 	.macro defcode name, namelen, flags=0, label
 	.section .rodata
-	.align 4
+	.balign 4
 	.globl name_\label
 name_\label :
-	.int link		// link
-	.set link,name_\label
+	.int name_\label		// link
 	.byte \flags+\namelen	// flags + length byte
 	.ascii "\name"		// the name
-	.align 4		// padding to next 4 byte boundary
+	.balign 4		// padding to next 4 byte boundary
 	.globl \label
 \label :
 	.int code_\label	// codeword
 	.text
-	//.align 4
+	//.balign 4
 	.globl code_\label
 code_\label :			// assembler code follows
 	.endm
@@ -1489,7 +1487,7 @@ _COPY_BYTES:
 // 	push $var_\name
 // 	NEXT
 // 	.data
-// 	.align 4
+// 	.balign 4
 // var_\name :
 // 	.int \initial
 // 	.endm
@@ -1500,7 +1498,7 @@ _COPY_BYTES:
 	PUSH t0
 	NEXT
 	.data
-	.align 4
+	.balign 4
 var_\name :
 	.int \initial
 	.endm
@@ -1539,8 +1537,7 @@ var_\name :
 	SYS_*		and the numeric codes of various Linux syscalls (from <asm/unistd.h>)
 */
 
-//#include <asm-i386/unistd.h>	// you might need this instead
-// #include <asm/unistd.h>
+#include <asm/unistd.h>	// you might need this instead
 
 	.macro defconst name, namelen, flags=0, label, value
 	defcode \name,\namelen,\flags,\label
@@ -1728,7 +1725,7 @@ var_\name :
 // 	int $0x80
 
 // 	.data
-// 	.align 4
+// 	.balign 4
 // currkey:
 // 	.int buffer		// Current place in input buffer (next character to read).
 // bufftop:
@@ -1772,7 +1769,7 @@ _KEY:
 	ecall
 
 	.data
-	.align 4
+	.balign 4
 currkey:
 	.int buffer		// Current place in input buffer (next character to read).
 bufftop:
@@ -2757,7 +2754,7 @@ errmsgend:
 errmsgnl: .ascii "\n"
 
 	.data			// NB: easier to fit in the .data section
-	.align 4
+	.balign 4
 
 /*
 	ODDS AND ENDS ----------------------------------------------------------------------
@@ -2796,8 +2793,8 @@ errmsgnl: .ascii "\n"
 	// 			// After xt runs its NEXT will continue executing the current word.
 
 	defcode "EXECUTE",7,,EXECUTE
-	POP t0			// Get xt into %eax
-	jr t0			// and jump to it.
+	POP a0			// Get xt into a0
+	jr a0			// and jump to it.
 				// After xt runs its NEXT will continue executing the current word.
 
 	// defcode "SYSCALL3",8,,SYSCALL3
@@ -2885,13 +2882,13 @@ set_up_data_segment:
 
 	.bss
 /* FORTH return stack. */
-	.align 4096
+	.balign 4096
 return_stack:
 	.space RETURN_STACK_SIZE
 return_stack_top:		// Initial top of return stack.
 
 /* This is used as a temporary input buffer when reading from files or the terminal. */
-	.align 4096
+	.balign 4096
 buffer:
 	.space BUFFER_SIZE
 
