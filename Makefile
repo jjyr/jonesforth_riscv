@@ -1,14 +1,12 @@
 # $Id: Makefile,v 1.9 2007-10-22 18:53:12 rich Exp $
 
-#BUILD_ID_NONE := -Wl,--build-id=none 
-BUILD_ID_NONE := 
-
 SHELL	:= /bin/bash
+GCC     := gcc
 
 all:	jonesforth
 
 jonesforth: jonesforth.S
-	gcc -m32 -nostdlib -static $(BUILD_ID_NONE) -o $@ $<
+	$(GCC) -I /usr/include/ -nostdlib -static -Wl,-Ttext,0 -o $@ $<
 
 run:
 	cat jonesforth.f $(PROG) - | ./jonesforth
@@ -35,7 +33,7 @@ test_%.test: test_%.f jonesforth
 # Performance.
 
 perf_dupdrop: perf_dupdrop.c
-	gcc -O3 -Wall -Werror -o $@ $<
+	$(GCC) -O3 -Wall -Werror -o $@ $<
 
 run_perf_dupdrop: jonesforth
 	cat <(echo ': TEST-MODE ;') jonesforth.f perf_dupdrop.f | ./jonesforth
@@ -43,8 +41,11 @@ run_perf_dupdrop: jonesforth
 .SUFFIXES: .f .test
 .PHONY: test check run run_perf_dupdrop
 
-remote:
-	scp jonesforth.S jonesforth.f rjones@oirase:Desktop/
-	ssh rjones@oirase sh -c '"rm -f Desktop/jonesforth; \
-	  gcc -m32 -nostdlib -static -Wl,-Ttext,0 -o Desktop/jonesforth Desktop/jonesforth.S; \
-	  cat Desktop/jonesforth.f - | Desktop/jonesforth arg1 arg2 arg3"'
+push-remote:
+	sshpass -p "riscv" scp -P 1234 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -r . root@localhost:/jonesforth
+
+ssh:
+	sshpass -p "riscv" ssh -p 1234 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@localhost
+
+qemu:
+        docker run -p 1234:10000 riscv-qemu-fedora
