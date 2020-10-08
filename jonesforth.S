@@ -1,16 +1,16 @@
 /*      RISC-V implementation of jones forth.
-        This repository is intended to rewrite the jones FORTH compiler and tutorial into RISC-V ISA.
+	This repository is intended to rewrite the jones FORTH compiler and tutorial into RISC-V ISA.
 
-        The code part of this tutorial is rewritten into RISC-V ASM
-        By JJy <jjyruby@gmail.com> https://justjjy.com,
-        other part of this tutorial is almost untouched 
-        unless it is related to the RISC-V ISA.
+	The code part of this tutorial is rewritten into RISC-V ASM
+	By JJy <jjyruby@gmail.com> https://justjjy.com,
+	other part of this tutorial is almost untouched 
+	unless it is related to the RISC-V ISA.
 
-        So you can use this tutorial just like the original one 
-        except the compiler is run on the Linux / RISCVI64.
+	So you can use this tutorial just like the original one 
+	except the compiler is run on the Linux / RISCVI64.
 
-        All the additional work is released under the same PUBLIC DOMAIN
-        just like the original compiler / tutorial.
+	All the additional work is released under the same PUBLIC DOMAIN
+	just like the original compiler / tutorial.
  */
 
 /*	A sometimes minimal FORTH compiler and tutorial for Linux / i386 systems. -*- asm -*-
@@ -118,7 +118,7 @@
 	line.  If not, sort out your tabs.
 
 		|
-	        |
+		|
 	    	|
 
 	Thirdly I assume that your screen is at least 50 characters high.
@@ -214,14 +214,14 @@
 	+--|------+---+---+---+---+---+---+---+---+------------- - - - -
 	| LINK    | 6 | D | O | U | B | L | E | 0 | (definition ...)
 	+---------+---+---+---+---+---+---+---+---+------------- - - - -
-           ^       len                         padding
+	   ^       len                         padding
 	   |
 	+--|------+---+---+---+---+---+---+---+---+---+---+---+---+------------- - - - -
 	| LINK    | 9 | Q | U | A | D | R | U | P | L | E | 0 | 0 | (definition ...)
 	+---------+---+---+---+---+---+---+---+---+---+---+---+---+------------- - - - -
-           ^       len                                     padding
-           |
-           |
+	   ^       len                                     padding
+	   |
+	   |
 	  LATEST
 
 	You should be able to see from this how you might implement functions to find a word in
@@ -326,11 +326,11 @@
 /* NEXT macro. */
 /* use s1 pointing to the interpreter pc
  */
-        .macro NEXT
-        lw a0, 0(s1)
-        addiw s1, s1, +4
-        jalr a0
-        .endm
+	.macro NEXT
+	lw a0, 0(s1)
+	addiw s1, s1, +4
+	jalr a0
+	.endm
 
 
 /*	The macro is called NEXT.  That's a FORTH-ism.  It expands to those two instructions.
@@ -374,7 +374,7 @@
 
 	Let's have a look at how QUADRUPLE and DOUBLE really look in FORTH:
 
-	        : QUADRUPLE DOUBLE DOUBLE ;
+		: QUADRUPLE DOUBLE DOUBLE ;
 
 		+------------------+
 		| codeword         |		   : DOUBLE DUP + ;
@@ -502,7 +502,7 @@
 	// .endm
 
 	.macro PUSH reg
-        addiw sp, sp, -4         // push reg on to stack
+	addiw sp, sp, -4         // push reg on to stack
 	sw sp, 0(\reg)
 	.endm
 
@@ -512,8 +512,8 @@
 	.endm
 
 	.macro PUSHRSP reg
-        addiw fp, fp, -4                   // push  reg on to stack
-        sw fp, 0(\reg)
+	addiw fp, fp, -4                   // push  reg on to stack
+	sw fp, 0(\reg)
 	.endm
 
 	// .macro POPRSP reg
@@ -522,8 +522,8 @@
 	// .endm
 
 	.macro POPRSP reg
-        lw \reg, 0(fp)            	// pop top of return stack to reg
-        addiw fp, fp, +4
+	lw \reg, 0(fp)            	// pop top of return stack to reg
+	addiw fp, fp, +4
 	.endm
 
 /*
@@ -630,7 +630,7 @@ stack points ->	| addr of DOUBLE   |	   + 4 =   +------------------+
 _start:
 	la t0, var_S0
 	sw sp, 0(t0)		// Save the initial data stack pointer in FORTH variable S0.
-        la fp, return_stack_top        // Initialise the return stack.
+	la fp, return_stack_top        // Initialise the return stack.
 	call set_up_data_segment
 
 	la s1, cold_start      	// Initialise interpreter.
@@ -652,7 +652,7 @@ cold_start:			// High-level code without a codeword.
 	+--|------+---+---+---+---+---+---+---+---+------------+------------+------------+------------+
 	| LINK    | 6 | D | O | U | B | L | E | 0 | DOCOL      | DUP        | +          | EXIT       |
 	+---------+---+---+---+---+---+---+---+---+------------+--|---------+------------+------------+
-           ^       len                         pad  codeword      |
+	   ^       len                         pad  codeword      |
 	   |							  V
 	  LINK in next word				points to codeword of DUP
 	
@@ -721,7 +721,7 @@ name_\label :
 	+--|------+---+---+---+---+------------+
 	| LINK    | 3 | D | U | P | code_DUP ---------------------> points to the assembly
 	+---------+---+---+---+---+------------+		    code used to write DUP,
-           ^       len              codeword			    which ends with NEXT.
+	   ^       len              codeword			    which ends with NEXT.
 	   |
 	  LINK in next word
 
@@ -758,7 +758,7 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "DROP",4,,DROP
-        POP a0		// drop top of stack
+	POP a0		// drop top of stack
 	NEXT
 
 	// defcode "SWAP",4,,SWAP
@@ -772,7 +772,7 @@ code_\label :			// assembler code follows
 	POP a0		// swap top two elements on stack
 	POP a1
 	PUSH a0
-        PUSH a1
+	PUSH a1
 	NEXT
 
 	// defcode "DUP",3,,DUP
@@ -808,9 +808,9 @@ code_\label :			// assembler code follows
 	POP a0
 	POP a1
 	POP a2
-        PUSH a1
-        PUSH a0
-        PUSH a2
+	PUSH a1
+	PUSH a0
+	PUSH a2
 	NEXT
 
 	// defcode "-ROT",4,,NROT
@@ -822,14 +822,14 @@ code_\label :			// assembler code follows
 	// push %ebx
 	// NEXT
 
-        defcode "-ROT",4,,NROT
-        POP a0
-        POP a1
-        POP a2
-        PUSH a0
-        PUSH a2
-        PUSH a1
-        NEXT
+	defcode "-ROT",4,,NROT
+	POP a0
+	POP a1
+	POP a2
+	PUSH a0
+	PUSH a2
+	PUSH a1
+	NEXT
 
 	// defcode "2DROP",5,,TWODROP // drop top two elements of stack
 	// pop %eax
@@ -838,7 +838,7 @@ code_\label :			// assembler code follows
 
 	defcode "2DROP",5,,TWODROP // drop top two elements of stack
 	POP a0
-        POP a0
+	POP a0
 	NEXT
 
 	// defcode "2DUP",4,,TWODUP // duplicate top two elements of stack
@@ -849,11 +849,11 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "2DUP",4,,TWODUP // duplicate top two elements of stack
-        lw a0, 0(sp)
-        lw a1, 4(sp)
-        PUSH a1
-        PUSH a0
-        NEXT
+	lw a0, 0(sp)
+	lw a1, 4(sp)
+	PUSH a1
+	PUSH a0
+	NEXT
 
 	// defcode "2SWAP",5,,TWOSWAP // swap top two pairs of elements of stack
 	// pop %eax
@@ -867,14 +867,14 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "2SWAP",5,,TWOSWAP // swap top two pairs of elements of stack
-        POP a0
-        POP a1
-        POP a2
-        POP a3
-        PUSH a1
-        PUSH a0
-        PUSH a3
-        PUSH a2
+	POP a0
+	POP a1
+	POP a2
+	POP a3
+	PUSH a1
+	PUSH a0
+	PUSH a3
+	PUSH a2
 	NEXT
 
 // 	defcode "?DUP",4,,QDUP	// duplicate top of stack if non-zero
@@ -885,9 +885,9 @@ code_\label :			// assembler code follows
 // 1:	NEXT
 
 	defcode "?DUP",4,,QDUP	// duplicate top of stack if non-zero
-        lw a0, 0(sp)
-        beqz a0, 1f
-        PUSH a0
+	lw a0, 0(sp)
+	beqz a0, 1f
+	PUSH a0
 1:	NEXT
 
 	// defcode "1+",2,,INCR
@@ -895,9 +895,9 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "1+",2,,INCR
-        POP a0
-        addiw a0, a0, +1         // increment top of stack
-        PUSH a0
+	POP a0
+	addiw a0, a0, +1         // increment top of stack
+	PUSH a0
 	NEXT
 
 	// defcode "1-",2,,DECR
@@ -905,9 +905,9 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "1-",2,,DECR
-        POP a0
+	POP a0
 	addiw a0, a0, -1		// decrement top of stack
-        PUSH a0
+	PUSH a0
 	NEXT
 
 	// defcode "4+",2,,INCR4
@@ -915,9 +915,9 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "4+",2,,INCR4
-        POP a0
+	POP a0
 	addiw a0, a0, +4		// add 4 to top of stack
-        PUSH a0
+	PUSH a0
 	NEXT
 
 	// defcode "4-",2,,DECR4
@@ -925,9 +925,9 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "4-",2,,DECR4
-        POP a0
+	POP a0
 	addiw a0, a0, -4 	// subtract 4 from top of stack
-        PUSH a0
+	PUSH a0
 	NEXT
 
 	// defcode "+",1,,ADD
@@ -939,7 +939,7 @@ code_\label :			// assembler code follows
 	POP a0		// get top of stack
 	POP a1		// get second of stack
 	addw a0, a0, a1	// and add the two number
-        PUSH a0         // push back the result to stack
+	PUSH a0         // push back the result to stack
 	NEXT
 
 	// defcode "-",1,,SUB
@@ -950,8 +950,8 @@ code_\label :			// assembler code follows
 	defcode "-",1,,SUB
 	POP a0		// get top of stack
 	POP a1		// get second of stack
-        subw a0, a1, a0	// and subtract the two number
-        PUSH a0         // push back the result to stack
+	subw a0, a1, a0	// and subtract the two number
+	PUSH a0         // push back the result to stack
 	NEXT
 
 	// defcode "*",1,,MUL
@@ -962,8 +962,8 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "*",1,,MUL
-        POP a0
-        POP a1
+	POP a0
+	POP a1
 	mul a0, a0, a1
 	PUSH a0		// ignore overflow
 	NEXT
@@ -975,17 +975,17 @@ code_\label :			// assembler code follows
 */
 
 /*
-        From the RISC-V spec [7.2]:
-        If both the quotient and remainder are required from the same division, the
-        recommended code sequence is: DIV[U] rdq, rs1, rs2; REM[U] rdr, rs1, rs2 (rdq cannot be the
-        same as rs1 or rs2). Microarchitectures can then fuse these into a single divide operation instead
-        of performing two separate divides.
+	From the RISC-V spec [7.2]:
+	If both the quotient and remainder are required from the same division, the
+	recommended code sequence is: DIV[U] rdq, rs1, rs2; REM[U] rdr, rs1, rs2 (rdq cannot be the
+	same as rs1 or rs2). Microarchitectures can then fuse these into a single divide operation instead
+	of performing two separate divides.
 */
 	defcode "/MOD",4,,DIVMOD
-        POP a0,
-        POP a1,
-        div a3, a1, a0
-        rem a4, a1, a0
+	POP a0,
+	POP a1,
+	div a3, a1, a0
+	rem a4, a1, a0
 	PUSH a4		// push remainder
 	PUSH a3		// push quotient
 	NEXT
@@ -1009,11 +1009,11 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "=",1,,EQU	// top two words are equal?
-        POP a0
-        POP a1
-        subw a0, a0, a1
-        seqz a0, a0             // set a0 to 1 if a0 is zero
-        PUSH a0
+	POP a0
+	POP a1
+	subw a0, a0, a1
+	seqz a0, a0             // set a0 to 1 if a0 is zero
+	PUSH a0
 	NEXT
 
 	// defcode "<>",2,,NEQU	// top two words are not equal?
@@ -1028,9 +1028,9 @@ code_\label :			// assembler code follows
 	defcode "<>",2,,NEQU	// top two words are not equal?
 	POP a0
 	POP a1
-        subw a0, a0, a1
-        sltu a0, zero, a0         // set a0 to 1 if a0 is not equals to zero, otherwise set a0 to 0
-        PUSH a0
+	subw a0, a0, a1
+	sltu a0, zero, a0         // set a0 to 1 if a0 is not equals to zero, otherwise set a0 to 0
+	PUSH a0
 	NEXT
 
 	// defcode "<",1,,LT
@@ -1043,10 +1043,10 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "<",1,,LT
-        POP a0
-        POP a1
-        slt a0, a1, a0          // set a0 to 1 if a1 < a0, otherwise set a0 to 0
-        PUSH a0
+	POP a0
+	POP a1
+	slt a0, a1, a0          // set a0 to 1 if a1 < a0, otherwise set a0 to 0
+	PUSH a0
 	NEXT
 
 	// defcode ">",1,,GT
@@ -1059,10 +1059,10 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode ">",1,,GT
-        POP a0
-        POP a1
-        slt a0, a0, a1          // set a0 to 1 if a0 < a1, otherwise set a0 to 0
-        PUSH a0
+	POP a0
+	POP a1
+	slt a0, a0, a1          // set a0 to 1 if a0 < a1, otherwise set a0 to 0
+	PUSH a0
 	NEXT
 
 	// defcode "<=",2,,LE
@@ -1075,8 +1075,8 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "<=",2,,LE
-        POP a0
-        POP a1
+	POP a0
+	POP a1
 	slt t0, a0, a1 // if a1 <= a0, then !(a0 < a1)
 	not t0, t0
 	PUSH t0
@@ -1092,11 +1092,11 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode ">=",2,,GE
-        POP a0
-        POP a1
-        slt t0, a1, a0          // if a1 >= a0, then !(a1 < a0)
+	POP a0
+	POP a1
+	slt t0, a1, a0          // if a1 >= a0, then !(a1 < a0)
 	not t0, t0
-        PUSH t0
+	PUSH t0
 	NEXT
 
 	// defcode "0=",2,,ZEQU	// top of stack equals 0?
@@ -1108,9 +1108,9 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "0=",2,,ZEQU	// top of stack equals 0?
-        POP a0
-        seqz a0, a0
-        PUSH a0
+	POP a0
+	seqz a0, a0
+	PUSH a0
 	NEXT
 
 	// defcode "0<>",3,,ZNEQU	// top of stack not 0?
@@ -1122,9 +1122,9 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "0<>",3,,ZNEQU	// top of stack not 0?
-        POP a0
-        sltu a0, zero, a0
-        PUSH a0
+	POP a0
+	sltu a0, zero, a0
+	PUSH a0
 	NEXT
 
 	// defcode "0<",2,,ZLT	// comparisons with 0
@@ -1136,9 +1136,9 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "0<",2,,ZLT	// comparisons with 0
-        POP a0
-        slt a0, a0, zero
-        PUSH a0
+	POP a0
+	slt a0, a0, zero
+	PUSH a0
 	NEXT
 
 	// defcode "0>",2,,ZGT
@@ -1150,9 +1150,9 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "0>",2,,ZGT
-        POP a0
-        slt a0, zero, a0
-        PUSH a0
+	POP a0
+	slt a0, zero, a0
+	PUSH a0
 	NEXT
 
 	// defcode "0<=",3,,ZLE
@@ -1164,10 +1164,10 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "0<=",3,,ZLE
-        POP a0
-        slt t0, zero, a0
+	POP a0
+	slt t0, zero, a0
 	not t0, t0
-        PUSH t0
+	PUSH t0
 	NEXT
 
 	// defcode "0>=",3,,ZGE
@@ -1179,37 +1179,37 @@ code_\label :			// assembler code follows
 	// NEXT
 
 	defcode "0>=",3,,ZGE
-        POP a0
-        slt t0, a0, zero
+	POP a0
+	slt t0, a0, zero
 	not t0, t0
-        PUSH t0
+	PUSH t0
 	NEXT
 
 	defcode "AND",3,,AND	// bitwise AND
-        POP a0
-        POP a1
-        and a0, a0, a1
-        PUSH a0
+	POP a0
+	POP a1
+	and a0, a0, a1
+	PUSH a0
 	NEXT
 
 	defcode "OR",2,,OR	// bitwise OR
-        POP a0
-        POP a1
-        or a0, a0, a1
-        PUSH a0
+	POP a0
+	POP a1
+	or a0, a0, a1
+	PUSH a0
 	NEXT
 
 	defcode "XOR",3,,XOR	// bitwise XOR
-        POP a0
-        POP a1
-        xor a0, a0, a1
-        PUSH a0
+	POP a0
+	POP a1
+	xor a0, a0, a1
+	PUSH a0
 	NEXT
 
 	defcode "INVERT",6,,INVERT // this is the FORTH bitwise "NOT" function (cf. NEGATE and NOT)
-        POP a0
-        not a0, a0
-        PUSH a0
+	POP a0
+	not a0, a0
+	PUSH a0
 	NEXT
 
 /*
@@ -1685,7 +1685,7 @@ var_\name :
 	+-------------------------------+--------------------------------------+
 	| INPUT READ FROM STDIN ....... | unused part of the buffer            |
 	+-------------------------------+--------------------------------------+
-	                  ^
+			  ^
 			  |
 		       currkey (next character to read)
 
@@ -2123,7 +2123,7 @@ _TCFA:
 	+--|------+---+---+---+---+---+---+---+---+------------+------------+------------+------------+
 	| LINK    | 6 | D | O | U | B | L | E | 0 | DOCOL      | DUP        | +          | EXIT       |
 	+---------+---+---+---+---+---+---+---+---+------------+--|---------+------------+------------+
-           ^       len                         pad  codeword      |
+	   ^       len                         pad  codeword      |
 	   |							  V
 	  LATEST points here				points to codeword of DUP
 
@@ -2158,7 +2158,7 @@ _TCFA:
 	+--|------+---+---+---+---+---+---+---+---+------------+
 	| LINK    | 6 | D | O | U | B | L | E | 0 | DOCOL      |
 	+---------+---+---+---+---+---+---+---+---+------------+
-                   len                         pad  codeword
+		   len                         pad  codeword
 
 	(3) Set LATEST to point to the newly defined word, ...
 
@@ -2171,7 +2171,7 @@ _TCFA:
 	After : has run, our input is here:
 
 	: DOUBLE DUP + ;
-	         ^
+		 ^
 		 |
 		Next byte returned by KEY will be the 'D' character of DUP
 
@@ -2184,7 +2184,7 @@ _TCFA:
 	+---------+---+---+---+---+---+---+---+---+------------+------------+
 	| LINK    | 6 | D | O | U | B | L | E | 0 | DOCOL      | DUP        |
 	+---------+---+---+---+---+---+---+---+---+------------+------------+
-                   len                         pad  codeword
+		   len                         pad  codeword
 
 	Next we read +, get the codeword pointer, and append it:
 
@@ -2194,7 +2194,7 @@ _TCFA:
 	+---------+---+---+---+---+---+---+---+---+------------+------------+------------+
 	| LINK    | 6 | D | O | U | B | L | E | 0 | DOCOL      | DUP        | +          |
 	+---------+---+---+---+---+---+---+---+---+------------+------------+------------+
-                   len                         pad  codeword
+		   len                         pad  codeword
 
 	The issue is what happens next.  Obviously what we _don't_ want to happen is that we
 	read ";" and compile it and go on compiling everything afterwards.
@@ -2215,7 +2215,7 @@ _TCFA:
 	+---------+---+---+---+---+---+---+---+---+------------+------------+------------+------------+
 	| LINK    | 6 | D | O | U | B | L | E | 0 | DOCOL      | DUP        | +          | EXIT       |
 	+---------+---+---+---+---+---+---+---+---+------------+------------+------------+------------+
-                   len                         pad  codeword					       ^
+		   len                         pad  codeword					       ^
 												       |
 												      HERE
 	STATE is set to 0.
@@ -2240,7 +2240,7 @@ _TCFA:
 	+---------+---+---+---+---+---+---+---+---+
 	| LINK    | 6 | D | O | U | B | L | E | 0 |
 	+---------+---+---+---+---+---+---+---+---+
-                   len                         pad
+		   len                         pad
 
 	and the second part, the actual definition of : (COLON), calls CREATE and appends the
 	DOCOL codeword, so leaving:
@@ -2251,7 +2251,7 @@ _TCFA:
 	+---------+---+---+---+---+---+---+---+---+------------+
 	| LINK    | 6 | D | O | U | B | L | E | 0 | DOCOL      |
 	+---------+---+---+---+---+---+---+---+---+------------+
-                   len                         pad  codeword
+		   len                         pad  codeword
 
 	CREATE is a standard FORTH word and the advantage of this split is that we can reuse it to
 	create other types of words (not just ones which contain code, but words which contain variables,
@@ -2319,7 +2319,7 @@ _TCFA:
 	+---------+---+---+---+---+---+---+---+---+-- - - - - --+------------+
 	| LINK    | 6 | D | O | U | B | L | E | 0 |             |  <data>    |
 	+---------+---+---+---+---+---+---+---+---+-- - - - - --+------------+
-                   len                         pad		              ^
+		   len                         pad		              ^
 									      |
 									new value of HERE
 
