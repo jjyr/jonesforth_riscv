@@ -1562,11 +1562,11 @@ var_\name :
 	defconst "F_LENMASK",9,,__F_LENMASK,F_LENMASK
 
 	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit
-	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_open
+	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_openat
 	defconst "SYS_CLOSE",9,,SYS_CLOSE,__NR_close
 	defconst "SYS_READ",8,,SYS_READ,__NR_read
 	defconst "SYS_WRITE",9,,SYS_WRITE,__NR_write
-	defconst "SYS_CREAT",9,,SYS_CREAT,__NR_creat
+	defconst "SYS_CREAT",9,,SYS_CREAT,__NR_openat
 	defconst "SYS_BRK",7,,SYS_BRK,__NR_brk
 
 	defconst "O_RDONLY",8,,__O_RDONLY,0
