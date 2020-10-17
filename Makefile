@@ -48,4 +48,4 @@ ssh:
 	sshpass -p "riscv" ssh -p 1234 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@localhost
 
 qemu:
-        docker run -p 1234:10000 riscv-qemu-fedora
+	docker run -p 1234:10000 riscv-qemu-fedora
