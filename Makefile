@@ -2,11 +2,12 @@
 
 SHELL	:= /bin/bash
 GCC     := gcc
+CFLAGS	:= -I /usr/include
 
 all:	jonesforth
 
 jonesforth: jonesforth.S
-	$(GCC) -I /usr/include/ -nostdlib -static -Wl,-Ttext,0 -o $@ $<
+	$(GCC) $(CFLAGS) -nostdlib -static -g -o $@ $<
 
 run:
 	cat jonesforth.f $(PROG) - | ./jonesforth

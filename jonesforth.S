@@ -328,8 +328,9 @@
  */
 	.macro NEXT
 	lw a0, 0(s1)
-	addiw s1, s1, +4
-	jalr a0
+	addi s1, s1, +4
+	lw t0, 0(a0)
+	jalr t0
 	.endm
 
 
@@ -502,18 +503,18 @@
 	// .endm
 
 	.macro PUSH reg
-	addiw sp, sp, -4         // push reg on to stack
-	sw sp, 0(\reg)
+	addi sp, sp, -4         // push reg on to stack
+	sw \reg, 0(sp)
 	.endm
 
 	.macro POP reg
 	lw \reg, 0(sp)		// pop top of return stack to reg
-	addiw sp, sp, +4
+	addi sp, sp, +4
 	.endm
 
 	.macro PUSHRSP reg
-	addiw fp, fp, -4                   // push  reg on to stack
-	sw fp, 0(\reg)
+	addi fp, fp, -4                   // push  reg on to stack
+	sw \reg, 0(fp)
 	.endm
 
 	// .macro POPRSP reg
@@ -523,7 +524,7 @@
 
 	.macro POPRSP reg
 	lw \reg, 0(fp)            	// pop top of return stack to reg
-	addiw fp, fp, +4
+	addi fp, fp, +4
 	.endm
 
 /*
@@ -552,9 +553,9 @@
 	.text
 	.balign 4
 DOCOL:
-	PUSHRSP s1			// push s1 on to the return stack
+	PUSHRSP s1		// push s1 on to the return stack
 	addiw a0, a0, +4 	// a0 points to codeword, so make
-	lw s1, 0(a0)        // s1 point to first data word
+	mv s1, a0		// s1 point to first data word
 	NEXT
 
 /*
@@ -637,6 +638,7 @@ _start:
 	NEXT			        // Run interpreter!
 
 	.section .rodata
+	.balign 4
 cold_start:			// High-level code without a codeword.
 	.int QUIT
 
@@ -1303,7 +1305,7 @@ code_\label :			// assembler code follows
 	// On x86, it's a convenient single byte instruction!  (cf. NEXT macro)
 	lw a0, 0(s1)
 	PUSH a0			// push the literal number on to stack
-	addiw s1, s1, 4		// skip next command
+	addi s1, s1, 4		// skip next command
 	NEXT
 
 /*
@@ -1626,7 +1628,7 @@ var_\name :
 	// NEXT
 
 	defcode "RDROP",5,,RDROP
-	addiw fp, fp, +4		// pop return stack and throw away
+	addi fp, fp, +4		// pop return stack and throw away
 	NEXT
 
 /*
@@ -2534,7 +2536,7 @@ _COMMA:
 	defcode "'",1,,TICK
 	lw t0, 0(s1)		// Get the address of the next word and skip it.
 	PUSH t0			// Push it on the stack.
-	addiw s1, s1, 4
+	addi s1, s1, 4
 	NEXT
 
 /*
@@ -2584,7 +2586,7 @@ _COMMA:
 
 	defcode "BRANCH",6,,BRANCH
 	lw t0, 0(s1)
-	addw s1, s1, t0		// add the offset to the instruction pointer
+	add s1, s1, t0		// add the offset to the instruction pointer
 	NEXT
 
 	// defcode "0BRANCH",7,,ZBRANCH
@@ -2597,7 +2599,7 @@ _COMMA:
 	defcode "0BRANCH",7,,ZBRANCH
 	POP t0			// top of stack is zero?
 	beqz t0, code_BRANCH	// if so, jump back to the branch function above
-	addiw s1, s1, 4		// otherwise we need to skip the offset
+	addi s1, s1, 4		// otherwise we need to skip the offset
 	NEXT
 
 /*
@@ -2621,11 +2623,11 @@ _COMMA:
 
 	defcode "LITSTRING",9,,LITSTRING
 	lw a0, 0(s1)		// get the length of the string
-	addiw s1, s1, 4
+	addi s1, s1, 4
 	PUSH s1			// push the address of the start of the string
 	push a0			// push it on the stack
-	addw s1, s1, a0		// skip past the string
- 	addiw s1, s1, 3		// but round up to next 4 byte boundary
+	add s1, s1, a0		// skip past the string
+ 	addi s1, s1, 3		// but round up to next 4 byte boundary
 	andi s1, s1, ~3
 	NEXT
 
