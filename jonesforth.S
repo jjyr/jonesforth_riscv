@@ -502,6 +502,12 @@
 	// movl \reg,(%ebp)
 	// .endm
 
+	.macro RCALL symbol
+	PUSH ra					// push ra (return address) on to stack
+	call \symbol
+	POP ra					// resume ra
+	.endm
+
 	.macro PUSH reg
 	addi sp, sp, -4         // push reg on to stack
 	sw \reg, 0(sp)
@@ -1434,7 +1440,7 @@ code_\label :			// assembler code follows
 	POP a0			// length
 	POP a1			// destination address
 	POP a2			// source address
-	call _COPY_BYTES
+	RCALL _COPY_BYTES
 	NEXT
 
 /* Copy bytes	
@@ -1737,18 +1743,19 @@ var_\name :
 	.set BUFFER_SIZE, 4096
 
 	defcode "KEY",3,,KEY
-	call _KEY
+	RCALL _KEY
 	PUSH a0		// push return value on stack
 	NEXT
 _KEY:
-	la a1, currkey
-	lw a1, 0(a1)
+	la t1, currkey
+	lw a1, 0(t1)
 	la t0, bufftop
+	lw t0, 0(t0)
 	sltu a2, a1, t0
 	beqz a2, 1f		// exhausted the input buffer?
 	lb a0, 0(a1)		// get next key from input buffer
 	addiw a3, a1, +1
-	sb a3, 0(a1)		// increment currkey
+	sb a3, 0(t1)		// increment currkey
 	ret
 
 1:	// Out of input; use read(2) to fetch more input from stdin.
@@ -1806,7 +1813,7 @@ bufftop:
 
 	defcode "EMIT",4,,EMIT
 	POP a0
-	call _EMIT
+	RCALL _EMIT
 	NEXT
 _EMIT:
 	// write needs the address of the byte to write
@@ -1855,7 +1862,7 @@ emit_scratch:
 */
 
 	defcode "WORD",4,,WORD
-	call _WORD
+	RCALL _WORD
 	PUSH a0		// push base address
 	PUSH a1		// push length
 	NEXT
@@ -1863,7 +1870,7 @@ emit_scratch:
 _WORD:
 	/* Search for first non-blank character.  Also skip \ comments. */
 1:
-	call _KEY		// get next key, returned in %eax
+	RCALL _KEY		// get next key, returned in %eax
 	addiw a1, a0, -'\\'	// start of a comment?
 	beqz a1, 3f		// if so, skip the comment
 	addiw a1, a0, -' '
@@ -1874,7 +1881,9 @@ _WORD:
 2:
 	sb a0, 0(a2)		// add character to return buffer
 	addiw a2, a2, +1
-	call _KEY		// get next key, returned in %al
+	PUSH a2
+	RCALL _KEY		// get next key, returned in %al
+	POP a2
 	addiw a1, a0, -' '	// is blank?
 	bnez a1, 2b		// if not, keep looping
 
@@ -1885,7 +1894,7 @@ _WORD:
 
 	/* Code to skip \ comments to end of the current line. */
 3:
-	call _KEY
+	RCALL _KEY
 	addiw a1, a0, -'\n'	// end of line yet?
 	bnez a1, 3b
 	j 1b
@@ -1915,7 +1924,7 @@ word_buffer:
 	defcode "NUMBER",6,,NUMBER
 	POP a1		// length of string
 	POP a2		// start address of string
-	call _NUMBER
+	RCALL _NUMBER
 	PUSH a0		// parsed number
 	PUSH a1		// number of unparsed characters (0 = no error)
 	NEXT
@@ -1999,7 +2008,7 @@ _NUMBER:
 	defcode "FIND",4,,FIND
 	POP a1			// a1 = length
 	POP a2			// a2 = address
-	call _FIND
+	RCALL _FIND
 	PUSH a0			// a0 = address of dictionary entry (or NULL)
 	NEXT
 
@@ -2072,7 +2081,7 @@ _FIND:
 
 	defcode ">CFA",4,,TCFA
 	POP a0
-	call _TCFA
+	RCALL _TCFA
 	PUSH a0
 	NEXT
 _TCFA:
@@ -2293,7 +2302,7 @@ _TCFA:
 	addiw a1, a1, 1
 	PUSH a0			// save length and destination address
 	PUSH a1
-	call _COPY_BYTES	// Copy the word
+	RCALL _COPY_BYTES	// Copy the word
 	POP a1
 	POP a0
 	addw a1, a1, a0		// a1 is the address of the end of word
@@ -2343,7 +2352,7 @@ _TCFA:
 
 	defcode ",",1,,COMMA
 	POP a0		// Code pointer to store.
-	call _COMMA
+	RCALL _COMMA
 	NEXT
 _COMMA:
 	la t0, var_HERE		// HERE
@@ -2671,18 +2680,18 @@ _COMMA:
 	it later with a more powerful one!
  */
 	defcode "INTERPRET",9,,INTERPRET
-	call _WORD		// Returns a1 = length, a0 = pointer to word.
+	RCALL _WORD		// Returns a1 = length, a0 = pointer to word.
 
 	// Is it in the dictionary? Use s2 as the interpret_is_lit flag.
 	mv s2, zero			// Not a literal number (not yet anyway ...)
 	mv a2, a0
-	call _FIND			// Returns a0 = pointer to header or 0 if not found.
+	RCALL _FIND			// Returns a0 = pointer to header or 0 if not found.
 	beqz a0, 1f
 
 	// In the dictionary.  Is it an IMMEDIATE codeword?
 	lb t0, 4(a0)		// Get name+flags.
 	PUSH t0			// Just save it for now.
-	call _TCFA		// Convert dictionary entry (in a0) to codeword pointer.
+	RCALL _TCFA		// Convert dictionary entry (in a0) to codeword pointer.
 	POP t0
 	andi t0, t0, F_IMMED	// Is IMMED flag set?
 	subw t0, t0, t0
@@ -2692,7 +2701,7 @@ _COMMA:
 
 1:	// Not in the dictionary (not a word) so assume it's a literal number.
 	addiw s2, s2, 1		// inc interpret_is_lit
-	call _NUMBER		// Returns the parsed number in a0, a1 > 0 if error
+	RCALL _NUMBER		// Returns the parsed number in a0, a1 > 0 if error
 	bnez a1, 6f
 	mv a1, a0
 	la a0, LIT		// The word is LIT
@@ -2703,10 +2712,10 @@ _COMMA:
 	beqz t0, 4f		// Jump if executing.
 
 	// Compiling - just append the word to the current dictionary definition.
-	call _COMMA
+	RCALL _COMMA
 	beqz s2, 3f		// Was it a literal?
 	mv a0, a1		// Yes, so LIT is followed by a number.
-	call _COMMA
+	RCALL _COMMA
 3:	NEXT
 
 4:	// Executing - run it!
@@ -2784,7 +2793,7 @@ errmsgnl: .ascii "\n"
 	// NEXT
 
 	defcode "CHAR",4,,CHAR
-	call _WORD		// Returns a1 = length, a0 = pointer to word.
+	RCALL _WORD		// Returns a1 = length, a0 = pointer to word.
 	lb t0, 0(a0)		// Get the first character of the word.
 	PUSH t0			// Push it onto the stack.
 	NEXT
