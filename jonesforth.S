@@ -698,14 +698,12 @@ DOUBLE: .int DOCOL		// codeword
 	.set F_LENMASK,0x1f	// length mask
 
 	// Store the chain of links.
-	.set link,0
-
-	.macro defword name, namelen, flags=0, label
+	.macro defword name, namelen, flags=0, label, link
 	.section .rodata
 	.balign 4
 	.globl name_\label
 name_\label :
-	.int name_\label		// link
+	.int name_\link		// link
 	.byte \flags+\namelen	// flags + length byte
 	.ascii "\name"		// the name
 	.balign 4		// padding to next 4 byte boundary
@@ -737,12 +735,12 @@ name_\label :
 	As with defword above, don't worry about the complicated details of the macro.
 */
 
-	.macro defcode name, namelen, flags=0, label
+	.macro defcode name, namelen, flags=0, label, link
 	.section .rodata
 	.balign 4
 	.globl name_\label
 name_\label :
-	.int name_\label		// link
+	.int name_\link		// link
 	.byte \flags+\namelen	// flags + length byte
 	.ascii "\name"		// the name
 	.balign 4		// padding to next 4 byte boundary
@@ -761,11 +759,13 @@ code_\label :			// assembler code follows
 	you can skip the details.
 */
 
+	.set name_NULL, 0
+
 	// defcode "DROP",4,,DROP
 	// pop %eax		// drop top of stack
 	// NEXT
 
-	defcode "DROP",4,,DROP
+	defcode "DROP",4,,DROP, NULL
 	POP a0		// drop top of stack
 	NEXT
 
@@ -776,7 +776,7 @@ code_\label :			// assembler code follows
 	// push %ebx
 	// NEXT
 
-	defcode "SWAP",4,,SWAP
+	defcode "SWAP",4,,SWAP, DROP
 	POP a0		// swap top two elements on stack
 	POP a1
 	PUSH a0
@@ -788,7 +788,7 @@ code_\label :			// assembler code follows
 	// push %eax
 	// NEXT
 
-	defcode "DUP",3,,DUP
+	defcode "DUP",3,,DUP, SWAP
 	lw a0, 0(sp)    		// duplicate top of stack
 	PUSH a0
 	NEXT
@@ -798,7 +798,7 @@ code_\label :			// assembler code follows
 	// push %eax		// and push it on top
 	// NEXT
 
-	defcode "OVER",4,,OVER
+	defcode "OVER",4,,OVER, DUP
 	lw a0, 4(sp)	                // get the second element of stack
 	PUSH a0 		        // and push it on top
 	NEXT
@@ -812,7 +812,7 @@ code_\label :			// assembler code follows
 	// push %ecx
 	// NEXT
 
-	defcode "ROT",3,,ROT
+	defcode "ROT",3,,ROT, OVER
 	POP a0
 	POP a1
 	POP a2
@@ -830,7 +830,7 @@ code_\label :			// assembler code follows
 	// push %ebx
 	// NEXT
 
-	defcode "-ROT",4,,NROT
+	defcode "-ROT",4,,NROT, ROT
 	POP a0
 	POP a1
 	POP a2
@@ -844,7 +844,7 @@ code_\label :			// assembler code follows
 	// pop %eax
 	// NEXT
 
-	defcode "2DROP",5,,TWODROP // drop top two elements of stack
+	defcode "2DROP",5,,TWODROP, NROT // drop top two elements of stack
 	POP a0
 	POP a0
 	NEXT
@@ -856,7 +856,7 @@ code_\label :			// assembler code follows
 	// push %eax
 	// NEXT
 
-	defcode "2DUP",4,,TWODUP // duplicate top two elements of stack
+	defcode "2DUP",4,,TWODUP, TWODROP // duplicate top two elements of stack
 	lw a0, 0(sp)
 	lw a1, 4(sp)
 	PUSH a1
@@ -874,7 +874,7 @@ code_\label :			// assembler code follows
 	// push %ecx
 	// NEXT
 
-	defcode "2SWAP",5,,TWOSWAP // swap top two pairs of elements of stack
+	defcode "2SWAP",5,,TWOSWAP, TWODUP // swap top two pairs of elements of stack
 	POP a0
 	POP a1
 	POP a2
@@ -892,7 +892,7 @@ code_\label :			// assembler code follows
 // 	push %eax
 // 1:	NEXT
 
-	defcode "?DUP",4,,QDUP	// duplicate top of stack if non-zero
+	defcode "?DUP",4,,QDUP, TWOSWAP	// duplicate top of stack if non-zero
 	lw a0, 0(sp)
 	beqz a0, 1f
 	PUSH a0
@@ -902,7 +902,7 @@ code_\label :			// assembler code follows
 	// incl (%esp)		// increment top of stack
 	// NEXT
 
-	defcode "1+",2,,INCR
+	defcode "1+",2,,INCR, QDUP
 	POP a0
 	addiw a0, a0, +1         // increment top of stack
 	PUSH a0
@@ -912,7 +912,7 @@ code_\label :			// assembler code follows
 	// decl (%esp)		// decrement top of stack
 	// NEXT
 
-	defcode "1-",2,,DECR
+	defcode "1-",2,,DECR, INCR
 	POP a0
 	addiw a0, a0, -1		// decrement top of stack
 	PUSH a0
@@ -922,7 +922,7 @@ code_\label :			// assembler code follows
 	// addl $4,(%esp)		// add 4 to top of stack
 	// NEXT
 
-	defcode "4+",2,,INCR4
+	defcode "4+",2,,INCR4, DECR
 	POP a0
 	addiw a0, a0, +4		// add 4 to top of stack
 	PUSH a0
@@ -932,7 +932,7 @@ code_\label :			// assembler code follows
 	// subl $4,(%esp)		// subtract 4 from top of stack
 	// NEXT
 
-	defcode "4-",2,,DECR4
+	defcode "4-",2,,DECR4, INCR4
 	POP a0
 	addiw a0, a0, -4 	// subtract 4 from top of stack
 	PUSH a0
@@ -943,7 +943,7 @@ code_\label :			// assembler code follows
 	// addl %eax,(%esp)	// and add it to next word on stack
 	// NEXT
 
-	defcode "+",1,,ADD
+	defcode "+",1,,ADD, DECR4
 	POP a0		// get top of stack
 	POP a1		// get second of stack
 	addw a0, a0, a1	// and add the two number
@@ -955,7 +955,7 @@ code_\label :			// assembler code follows
 	// subl %eax,(%esp)	// and subtract it from next word on stack
 	// NEXT
 
-	defcode "-",1,,SUB
+	defcode "-",1,,SUB, ADD
 	POP a0		// get top of stack
 	POP a1		// get second of stack
 	subw a0, a1, a0	// and subtract the two number
@@ -969,7 +969,7 @@ code_\label :			// assembler code follows
 	// push %eax		// ignore overflow
 	// NEXT
 
-	defcode "*",1,,MUL
+	defcode "*",1,,MUL, SUB
 	POP a0
 	POP a1
 	mul a0, a0, a1
@@ -989,7 +989,7 @@ code_\label :			// assembler code follows
 	same as rs1 or rs2). Microarchitectures can then fuse these into a single divide operation instead
 	of performing two separate divides.
 */
-	defcode "/MOD",4,,DIVMOD
+	defcode "/MOD",4,,DIVMOD, MUL
 	POP a0,
 	POP a1,
 	div a3, a1, a0
@@ -1016,7 +1016,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "=",1,,EQU	// top two words are equal?
+	defcode "=",1,,EQU, DIVMOD	// top two words are equal?
 	POP a0
 	POP a1
 	subw a0, a0, a1
@@ -1033,7 +1033,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "<>",2,,NEQU	// top two words are not equal?
+	defcode "<>",2,,NEQU, EQU	// top two words are not equal?
 	POP a0
 	POP a1
 	subw a0, a0, a1
@@ -1050,7 +1050,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "<",1,,LT
+	defcode "<",1,,LT, NEQU
 	POP a0
 	POP a1
 	slt a0, a1, a0          // set a0 to 1 if a1 < a0, otherwise set a0 to 0
@@ -1066,7 +1066,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode ">",1,,GT
+	defcode ">",1,,GT, LT
 	POP a0
 	POP a1
 	slt a0, a0, a1          // set a0 to 1 if a0 < a1, otherwise set a0 to 0
@@ -1082,7 +1082,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "<=",2,,LE
+	defcode "<=",2,,LE, GT
 	POP a0
 	POP a1
 	slt t0, a0, a1 // if a1 <= a0, then !(a0 < a1)
@@ -1099,7 +1099,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode ">=",2,,GE
+	defcode ">=",2,,GE, LE
 	POP a0
 	POP a1
 	slt t0, a1, a0          // if a1 >= a0, then !(a1 < a0)
@@ -1115,7 +1115,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "0=",2,,ZEQU	// top of stack equals 0?
+	defcode "0=",2,,ZEQU, GE	// top of stack equals 0?
 	POP a0
 	seqz a0, a0
 	PUSH a0
@@ -1129,7 +1129,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "0<>",3,,ZNEQU	// top of stack not 0?
+	defcode "0<>",3,,ZNEQU, ZEQU	// top of stack not 0?
 	POP a0
 	sltu a0, zero, a0
 	PUSH a0
@@ -1143,7 +1143,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "0<",2,,ZLT	// comparisons with 0
+	defcode "0<",2,,ZLT, ZNEQU	// comparisons with 0
 	POP a0
 	slt a0, a0, zero
 	PUSH a0
@@ -1157,7 +1157,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "0>",2,,ZGT
+	defcode "0>",2,,ZGT, ZLT
 	POP a0
 	slt a0, zero, a0
 	PUSH a0
@@ -1171,7 +1171,7 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "0<=",3,,ZLE
+	defcode "0<=",3,,ZLE, ZGT
 	POP a0
 	slt t0, zero, a0
 	not t0, t0
@@ -1186,35 +1186,35 @@ code_\label :			// assembler code follows
 	// pushl %eax
 	// NEXT
 
-	defcode "0>=",3,,ZGE
+	defcode "0>=",3,,ZGE, ZLE
 	POP a0
 	slt t0, a0, zero
 	not t0, t0
 	PUSH t0
 	NEXT
 
-	defcode "AND",3,,AND	// bitwise AND
+	defcode "AND",3,,AND, ZGE	// bitwise AND
 	POP a0
 	POP a1
 	and a0, a0, a1
 	PUSH a0
 	NEXT
 
-	defcode "OR",2,,OR	// bitwise OR
+	defcode "OR",2,,OR, AND	// bitwise OR
 	POP a0
 	POP a1
 	or a0, a0, a1
 	PUSH a0
 	NEXT
 
-	defcode "XOR",3,,XOR	// bitwise XOR
+	defcode "XOR",3,,XOR, OR	// bitwise XOR
 	POP a0
 	POP a1
 	xor a0, a0, a1
 	PUSH a0
 	NEXT
 
-	defcode "INVERT",6,,INVERT // this is the FORTH bitwise "NOT" function (cf. NEGATE and NOT)
+	defcode "INVERT",6,,INVERT, XOR // this is the FORTH bitwise "NOT" function (cf. NEGATE and NOT)
 	POP a0
 	not a0, a0
 	PUSH a0
@@ -1247,7 +1247,7 @@ code_\label :			// assembler code follows
 	// POPRSP %esi		// pop return stack into %esi
 	// NEXT
 
-	defcode "EXIT",4,,EXIT
+	defcode "EXIT",4,,EXIT, INVERT
 	POPRSP s1		// pop return stack into s1
 	NEXT
 
@@ -1305,7 +1305,7 @@ code_\label :			// assembler code follows
 	// push %eax		// push the literal number on to stack
 	// NEXT
 
-	defcode "LIT",3,,LIT
+	defcode "LIT",3,,LIT, EXIT
 	// %esi points to the next command, but in this case it points to the next
 	// literal 32 bit integer.  Get that literal into %eax and increment %esi.
 	// On x86, it's a convenient single byte instruction!  (cf. NEXT macro)
@@ -1328,7 +1328,7 @@ code_\label :			// assembler code follows
 	// mov %eax,(%ebx)		// store it
 	// NEXT
 
-	defcode "!",1,,STORE
+	defcode "!",1,,STORE, LIT
 	POP a0			// address to store at
 	POP a1			// data to store there
 	sw a1, 0(a0)	// store it
@@ -1340,7 +1340,7 @@ code_\label :			// assembler code follows
 	// push %eax		// push value onto stack
 	// NEXT
 
-	defcode "@",1,,FETCH
+	defcode "@",1,,FETCH, STORE
 	POP a0			// address to fetch
 	lw a1, 0(a0)	// fetch it
 	PUSH a1			// push value onto stack
@@ -1352,7 +1352,7 @@ code_\label :			// assembler code follows
 	// addl %eax,(%ebx)	// add it
 	// NEXT
 
-	defcode "+!",2,,ADDSTORE
+	defcode "+!",2,,ADDSTORE, FETCH
 	POP a0			// address
 	POP a1			// the amount to add
 	lw a2, 0(a0)
@@ -1366,7 +1366,7 @@ code_\label :			// assembler code follows
 	// subl %eax,(%ebx)	// add it
 	// NEXT
 
-	defcode "-!",2,,SUBSTORE
+	defcode "-!",2,,SUBSTORE, ADDSTORE
 	POP a0		// address
 	POP a1		// the amount to subtract
 	lw a2, 0(a0)
@@ -1387,7 +1387,7 @@ code_\label :			// assembler code follows
 	// movb %al,(%ebx)		// store it
 	// NEXT
 
-	defcode "C!",2,,STOREBYTE
+	defcode "C!",2,,STOREBYTE, SUBSTORE
 	POP a0			// address to store at
 	POP a1			// data to store there
 	sb a1, 0(a0)	// store it
@@ -1400,7 +1400,7 @@ code_\label :			// assembler code follows
 	// push %eax		// push value onto stack
 	// NEXT
 
-	defcode "C@",2,,FETCHBYTE
+	defcode "C@",2,,FETCHBYTE, STOREBYTE
 	POP a0			// address to fetch
 	lb a1, 0(a0)		// fetch it
 	PUSH a1			// push value onto stack
@@ -1416,7 +1416,7 @@ code_\label :			// assembler code follows
 	// incl 4(%esp)		// increment source address
 	// NEXT
 
-	defcode "C@C!",4,,CCOPY
+	defcode "C@C!",4,,CCOPY, FETCHBYTE
 	POP a0			// destination address
 	POP a1			// source address
 	lb a2, 0(a1)		// get source character
@@ -1436,7 +1436,7 @@ code_\label :			// assembler code follows
 	// mov %edx,%esi		// restore %esi
 	// NEXT
 
-	defcode "CMOVE",5,,CMOVE
+	defcode "CMOVE",5,,CMOVE,CCOPY
 	POP a0			// length
 	POP a1			// destination address
 	POP a2			// source address
@@ -1500,8 +1500,8 @@ _COPY_BYTES:
 // 	.int \initial
 // 	.endm
 
-	.macro defvar name, namelen, flags=0, label, initial=0
-	defcode \name,\namelen,\flags,\label
+	.macro defvar name, namelen, flags=0, label, initial=0,link
+	defcode \name,\namelen,\flags,\label,\link
 	la t0, var_\name
 	PUSH t0
 	NEXT
@@ -1521,11 +1521,11 @@ var_\name :
 	BASE		The current base for printing and reading numbers.
 
 */
-	defvar "STATE",5,,STATE
-	defvar "HERE",4,,HERE
-	defvar "LATEST",6,,LATEST,name_SYSCALL0 // SYSCALL0 must be last in built-in dictionary
-	defvar "S0",2,,SZ
-	defvar "BASE",4,,BASE,10
+	defvar "STATE",5,,STATE,,CMOVE
+	defvar "HERE",4,,HERE,,STATE
+	defvar "LATEST",6,,LATEST,name_SYSCALL0,STATE // SYSCALL0 must be last in built-in dictionary
+	defvar "S0",2,,SZ,,LATEST
+	defvar "BASE",4,,BASE,10,SZ
 
 /*
 	BUILT-IN CONSTANTS ----------------------------------------------------------------------
@@ -1547,44 +1547,44 @@ var_\name :
 
 #include <asm/unistd.h>	// you might need this instead
 
-	.macro defconst name, namelen, flags=0, label, value
-	defcode \name,\namelen,\flags,\label
+	.macro defconst name, namelen, flags=0, label, value, link
+	defcode \name,\namelen,\flags,\label,\link
 	li t0, \value
 	PUSH t0
 	NEXT
 	.endm
 
 	// same as defconst but the value is a symbol
-	.macro defconstsym name, namelen, flags=0, label, value
-	defcode \name,\namelen,\flags,\label
+	.macro defconstsym name, namelen, flags=0, label, value, link
+	defcode \name,\namelen,\flags,\label,\link
 	la t0, \value
 	PUSH t0
 	NEXT
 	.endm
 
-	defconst "VERSION",7,,VERSION,JONES_VERSION
-	defconstsym "R0",2,,RZ,return_stack_top
-	defconstsym "DOCOL",5,,__DOCOL,DOCOL
-	defconst "F_IMMED",7,,__F_IMMED,F_IMMED
-	defconst "F_HIDDEN",8,,__F_HIDDEN,F_HIDDEN
-	defconst "F_LENMASK",9,,__F_LENMASK,F_LENMASK
+	defconst "VERSION",7,,VERSION,JONES_VERSION,BASE
+	defconstsym "R0",2,,RZ,return_stack_top,VERSION
+	defconstsym "DOCOL",5,,__DOCOL,DOCOL,RZ
+	defconst "F_IMMED",7,,__F_IMMED,F_IMMED,__DOCOL
+	defconst "F_HIDDEN",8,,__F_HIDDEN,F_HIDDEN,__F_IMMED
+	defconst "F_LENMASK",9,,__F_LENMASK,F_LENMASK,__F_HIDDEN
 
-	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit
-	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_openat
-	defconst "SYS_CLOSE",9,,SYS_CLOSE,__NR_close
-	defconst "SYS_READ",8,,SYS_READ,__NR_read
-	defconst "SYS_WRITE",9,,SYS_WRITE,__NR_write
-	defconst "SYS_CREAT",9,,SYS_CREAT,__NR_openat
-	defconst "SYS_BRK",7,,SYS_BRK,__NR_brk
+	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit,__F_LENMASK
+	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_openat,SYS_EXIT
+	defconst "SYS_CLOSE",9,,SYS_CLOSE,__NR_close,SYS_OPEN
+	defconst "SYS_READ",8,,SYS_READ,__NR_read,SYS_CLOSE
+	defconst "SYS_WRITE",9,,SYS_WRITE,__NR_write,SYS_READ
+	defconst "SYS_CREAT",9,,SYS_CREAT,__NR_openat,SYS_WRITE
+	defconst "SYS_BRK",7,,SYS_BRK,__NR_brk,SYS_CREAT
 
-	defconst "O_RDONLY",8,,__O_RDONLY,0
-	defconst "O_WRONLY",8,,__O_WRONLY,1
-	defconst "O_RDWR",6,,__O_RDWR,2
-	defconst "O_CREAT",7,,__O_CREAT,0100
-	defconst "O_EXCL",6,,__O_EXCL,0200
-	defconst "O_TRUNC",7,,__O_TRUNC,01000
-	defconst "O_APPEND",8,,__O_APPEND,02000
-	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000
+	defconst "O_RDONLY",8,,__O_RDONLY,0,SYS_BRK
+	defconst "O_WRONLY",8,,__O_WRONLY,1,__O_RDONLY
+	defconst "O_RDWR",6,,__O_RDWR,2,__O_WRONLY
+	defconst "O_CREAT",7,,__O_CREAT,0100,__O_RDWR
+	defconst "O_EXCL",6,,__O_EXCL,0200,__O_CREAT
+	defconst "O_TRUNC",7,,__O_TRUNC,01000,__O_EXCL
+	defconst "O_APPEND",8,,__O_APPEND,02000,__O_TRUNC
+	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000,__O_APPEND
 
 /*
 	RETURN STACK ----------------------------------------------------------------------
@@ -1598,7 +1598,7 @@ var_\name :
 	// PUSHRSP %eax		// push it on to the return stack
 	// NEXT
 
-	defcode ">R",2,,TOR
+	defcode ">R",2,,TOR, __O_NONBLOCK
 	POP a0			// pop parameter stack into %eax
 	PUSHRSP a0		// push it on to the return stack
 	NEXT
@@ -1608,7 +1608,7 @@ var_\name :
 	// push %eax		// and push on to parameter stack
 	// NEXT
 
-	defcode "R>",2,,FROMR
+	defcode "R>",2,,FROMR, TOR
 	POPRSP a0		// pop return stack on to %eax
 	PUSH a0			// and push on to parameter stack
 	NEXT
@@ -1617,7 +1617,7 @@ var_\name :
 	// push %ebp
 	// NEXT
 
-	defcode "RSP@",4,,RSPFETCH
+	defcode "RSP@",4,,RSPFETCH, FROMR
 	PUSH fp
 	NEXT
 
@@ -1625,7 +1625,7 @@ var_\name :
 	// pop %ebp
 	// NEXT
 
-	defcode "RSP!",4,,RSPSTORE
+	defcode "RSP!",4,,RSPSTORE, RSPFETCH
 	POP fp
 	NEXT
 
@@ -1633,7 +1633,7 @@ var_\name :
 	// addl $4,%ebp		// pop return stack and throw away
 	// NEXT
 
-	defcode "RDROP",5,,RDROP
+	defcode "RDROP",5,,RDROP, RSPSTORE
 	addi fp, fp, +4		// pop return stack and throw away
 	NEXT
 
@@ -1653,12 +1653,12 @@ var_\name :
 	// pop %esp
 	// NEXT
 
-	defcode "DSP@",4,,DSPFETCH
+	defcode "DSP@",4,,DSPFETCH, RDROP
 	mv a0, sp
 	PUSH a0
 	NEXT
 
-	defcode "DSP!",4,,DSPSTORE
+	defcode "DSP!",4,,DSPSTORE, DSPFETCH
 	POP sp
 	NEXT
 
@@ -1742,7 +1742,7 @@ var_\name :
 
 	.set BUFFER_SIZE, 4096
 
-	defcode "KEY",3,,KEY
+	defcode "KEY",3,,KEY, DSPSTORE
 	RCALL _KEY
 	PUSH a0		// push return value on stack
 	NEXT
@@ -1811,7 +1811,7 @@ bufftop:
 // emit_scratch:
 // 	.space 1		// scratch used by EMIT
 
-	defcode "EMIT",4,,EMIT
+	defcode "EMIT",4,,EMIT, KEY
 	POP a0
 	RCALL _EMIT
 	NEXT
@@ -1861,7 +1861,7 @@ emit_scratch:
 	and immediate mode, and you'll understand why.
 */
 
-	defcode "WORD",4,,WORD
+	defcode "WORD",4,,WORD, EMIT
 	RCALL _WORD
 	PUSH a0		// push base address
 	PUSH a1		// push length
@@ -1921,7 +1921,7 @@ word_buffer:
 	were converted, so there is no error).  Second from top of stack is the parsed number or a
 	partial value if there was an error.
 */
-	defcode "NUMBER",6,,NUMBER
+	defcode "NUMBER",6,,NUMBER, WORD
 	POP a1		// length of string
 	POP a2		// start address of string
 	RCALL _NUMBER
@@ -2005,7 +2005,7 @@ _NUMBER:
 	// push %eax		// %eax = address of dictionary entry (or NULL)
 	// NEXT
 
-	defcode "FIND",4,,FIND
+	defcode "FIND",4,,FIND, NUMBER
 	POP a1			// a1 = length
 	POP a2			// a2 = address
 	RCALL _FIND
@@ -2079,7 +2079,7 @@ _FIND:
 	What does CFA stand for?  My best guess is "Code Field Address".
 */
 
-	defcode ">CFA",4,,TCFA
+	defcode ">CFA",4,,TCFA, FIND
 	POP a0
 	RCALL _TCFA
 	PUSH a0
@@ -2114,7 +2114,7 @@ _TCFA:
 	You can see that >DFA is easily defined in FORTH just by adding 4 to the result of >CFA.
 */
 
-	defword ">DFA",4,,TDFA
+	defword ">DFA",4,,TDFA, TCFA
 	.int TCFA		// >CFA		(get code field address)
 	.int INCR4		// 4+		(add 4 to it to get to next word)
 	.int EXIT		// EXIT		(return from FORTH word)
@@ -2269,7 +2269,7 @@ _TCFA:
 	constants and other data).
 */
 
-	defcode "CREATE",6,,CREATE
+	defcode "CREATE",6,,CREATE, TDFA
 
 	// Get the name length and address.
 	// pop %ecx		// %ecx = length
@@ -2284,9 +2284,11 @@ _TCFA:
 	// stosl			// and store it in the header.
 
 	la a1, var_HERE		// a1 is the address of the header
+	lw a1, 0(a1)
 	la a3, var_LATEST	
 	lw t0, 0(a3)		// Get link pointer
 	sw t0, 0(a1)		// and store it in the header.
+	addi a1, a1, 4
 
 	// Length byte and the word itself.
 	// mov %cl,%al		// Get the length.
@@ -2350,7 +2352,7 @@ _TCFA:
 // 	movl %edi,var_HERE	// Update HERE (incremented)
 // 	ret
 
-	defcode ",",1,,COMMA
+	defcode ",",1,,COMMA, CREATE
 	POP a0		// Code pointer to store.
 	RCALL _COMMA
 	NEXT
@@ -2390,12 +2392,12 @@ _COMMA:
 	// movl $1,var_STATE	// Set STATE to 1.
 	// NEXT
 
-	defcode "[",1,F_IMMED,LBRAC
+	defcode "[",1,F_IMMED,LBRAC, COMMA
 	la t0, var_STATE
 	sw zero, 0(t0)	// Set STATE to 0.
 	NEXT
 
-	defcode "]",1,,RBRAC
+	defcode "]",1,,RBRAC, LBRAC
 	la t0, var_STATE
 	la t1, 1
 	sw t1, 0(t0)	// Set STATE to 1.
@@ -2406,7 +2408,7 @@ _COMMA:
 	the word HIDDEN and goes into compile mode.
 */
 
-	defword ":",1,,COLON
+	defword ":",1,,COLON, RBRAC
 	.int WORD		// Get the name of the new word
 	.int CREATE		// CREATE the dictionary entry / header
 	.int LIT, DOCOL, COMMA	// Append DOCOL  (the codeword).
@@ -2418,7 +2420,7 @@ _COMMA:
 	; (SEMICOLON) is also elegantly simple.  Notice the F_IMMED flag.
 */
 
-	defword ";",1,F_IMMED,SEMICOLON
+	defword ";",1,F_IMMED,SEMICOLON, COLON
 	.int LIT, EXIT, COMMA	// Append EXIT (so the word will return).
 	.int LATEST, FETCH, HIDDEN // Toggle hidden flag -- unhide the word (see below for definition).
 	.int LBRAC		// Go back to IMMEDIATE mode.
@@ -2458,7 +2460,7 @@ _COMMA:
 	// xorb $F_IMMED,(%edi)	// Toggle the IMMED bit.
 	// NEXT
 
-	defcode "IMMEDIATE",9,F_IMMED,IMMEDIATE
+	defcode "IMMEDIATE",9,F_IMMED,IMMEDIATE,SEMICOLON
 	la a0, var_LATEST	// LATEST word.
 	lw a0, 0(a0)
 	addiw a0, a0, 4		// Point to name/flags byte.
@@ -2495,7 +2497,7 @@ _COMMA:
 	// xorb $F_HIDDEN,(%edi)	// Toggle the HIDDEN bit.
 	// NEXT
 
-	defcode "HIDDEN",6,,HIDDEN
+	defcode "HIDDEN",6,,HIDDEN,IMMEDIATE
 	POP a0			// Dictionary entry.
 	addiw a0, a0, 4		// Point to name/flags byte.
 	lb t0, 0(a0)
@@ -2503,7 +2505,7 @@ _COMMA:
 	sb t0, 0(a0)
 	NEXT
 
-	defword "HIDE",4,,HIDE
+	defword "HIDE",4,,HIDE,HIDDEN
 	.int WORD		// Get the word (after HIDE).
 	.int FIND		// Look up in the dictionary.
 	.int HIDDEN		// Set F_HIDDEN flag.
@@ -2542,7 +2544,7 @@ _COMMA:
 	// pushl %eax		// Push it on the stack.
 	// NEXT
 
-	defcode "'",1,,TICK
+	defcode "'",1,,TICK,HIDE
 	lw t0, 0(s1)		// Get the address of the next word and skip it.
 	PUSH t0			// Push it on the stack.
 	addi s1, s1, 4
@@ -2593,7 +2595,7 @@ _COMMA:
 	// add (%esi),%esi		// add the offset to the instruction pointer
 	// NEXT
 
-	defcode "BRANCH",6,,BRANCH
+	defcode "BRANCH",6,,BRANCH,TICK
 	lw t0, 0(s1)
 	add s1, s1, t0		// add the offset to the instruction pointer
 	NEXT
@@ -2605,7 +2607,7 @@ _COMMA:
 	// lodsl			// otherwise we need to skip the offset
 	// NEXT
 
-	defcode "0BRANCH",7,,ZBRANCH
+	defcode "0BRANCH",7,,ZBRANCH,BRANCH
 	POP t0			// top of stack is zero?
 	beqz t0, code_BRANCH	// if so, jump back to the branch function above
 	addi s1, s1, 4		// otherwise we need to skip the offset
@@ -2630,7 +2632,7 @@ _COMMA:
 	// andl $~3,%esi
 	// NEXT
 
-	defcode "LITSTRING",9,,LITSTRING
+	defcode "LITSTRING",9,,LITSTRING,ZBRANCH
 	lw a0, 0(s1)		// get the length of the string
 	addi s1, s1, 4
 	PUSH s1			// push the address of the start of the string
@@ -2648,7 +2650,7 @@ _COMMA:
 	// int $0x80
 	// NEXT
 
-	defcode "TELL",4,,TELL
+	defcode "TELL",4,,TELL,LITSTRING
 	li a0, 1		// 1st param: stdout
 	POP a2			// 3rd param: length of string
 	POP a1			// 2nd param: address of string
@@ -2670,7 +2672,7 @@ _COMMA:
 */
 
 	// QUIT must not return (ie. must not call EXIT).
-	defword "QUIT",4,,QUIT
+	defword "QUIT",4,,QUIT,TELL
 	.int RZ,RSPSTORE	// R0 RSP!, clear the return stack
 	.int INTERPRET		// interpret the next word
 	.int BRANCH,-8		// and loop (indefinitely)
@@ -2679,7 +2681,7 @@ _COMMA:
 	This interpreter is pretty simple, but remember that in FORTH you can always override
 	it later with a more powerful one!
  */
-	defcode "INTERPRET",9,,INTERPRET
+	defcode "INTERPRET",9,,INTERPRET,QUIT
 	RCALL _WORD		// Returns a1 = length, a0 = pointer to word.
 
 	// Is it in the dictionary? Use s2 as the interpret_is_lit flag.
@@ -2792,7 +2794,7 @@ errmsgnl: .ascii "\n"
 	// push %eax		// Push it onto the stack.
 	// NEXT
 
-	defcode "CHAR",4,,CHAR
+	defcode "CHAR",4,,CHAR,INTERPRET
 	RCALL _WORD		// Returns a1 = length, a0 = pointer to word.
 	lb t0, 0(a0)		// Get the first character of the word.
 	PUSH t0			// Push it onto the stack.
@@ -2803,7 +2805,7 @@ errmsgnl: .ascii "\n"
 	// jmp *(%eax)		// and jump to it.
 	// 			// After xt runs its NEXT will continue executing the current word.
 
-	defcode "EXECUTE",7,,EXECUTE
+	defcode "EXECUTE",7,,EXECUTE,CHAR
 	POP a0			// Get xt into a0
 	jr a0			// and jump to it.
 				// After xt runs its NEXT will continue executing the current word.
@@ -2817,7 +2819,7 @@ errmsgnl: .ascii "\n"
 	// push %eax		// Result (negative for -errno)
 	// NEXT
 
-	defcode "SYSCALL3",8,,SYSCALL3
+	defcode "SYSCALL3",8,,SYSCALL3,EXECUTE
 	POP a7			// System call number (see <asm/unistd.h>)
 	POP a0			// First parameter.
 	POP a1			// Second parameter
@@ -2826,7 +2828,7 @@ errmsgnl: .ascii "\n"
 	PUSH a0			// Result (negative for -errno)
 	NEXT
 
-	defcode "SYSCALL2",8,,SYSCALL2
+	defcode "SYSCALL2",8,,SYSCALL2,SYSCALL3
 	POP a7			// System call number (see <asm/unistd.h>)
 	POP a0			// First parameter.
 	POP a1			// Second parameter
@@ -2834,14 +2836,14 @@ errmsgnl: .ascii "\n"
 	PUSH a0			// Result (negative for -errno)
 	NEXT
 
-	defcode "SYSCALL1",8,,SYSCALL1
+	defcode "SYSCALL1",8,,SYSCALL1,SYSCALL2
 	POP a7			// System call number (see <asm/unistd.h>)
 	POP a0			// First parameter.
 	ecall
 	PUSH a0			// Result (negative for -errno)
 	NEXT
 
-	defcode "SYSCALL0",8,,SYSCALL0
+	defcode "SYSCALL0",8,,SYSCALL0,SYSCALL1
 	POP a7			// System call number (see <asm/unistd.h>)
 	ecall
 	PUSH a0			// Result (negative for -errno)
