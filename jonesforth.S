@@ -748,7 +748,7 @@ name_\label :
 \label :
 	.int code_\label	// codeword
 	.text
-	//.balign 4
+	.balign 4
 	.globl code_\label
 code_\label :			// assembler code follows
 	.endm
@@ -1766,8 +1766,8 @@ _KEY:
 	li a2, BUFFER_SIZE	// 3rd param: max length
 	li a7, __NR_read	// syscall: read
 	ecall
-	slt t0, a0, zero	// If a0 <= 0, then exit.
-	bnez t0, 2f
+	slt t0, zero, a0	// If a0 <= 0, then exit.
+	beqz t0, 2f
 	addw a0, a0, a1		// buffer+a0 = bufftop
 	la t0, bufftop
 	sw a0, 0(t0)
@@ -1954,13 +1954,13 @@ _NUMBER:
 	// Convert 0-9, A-Z to a number 0-35.
 2:	sltiu t0, a4, '0'	// < '0'?
 	bnez t0, 4f
-	sltiu t0, a4, 10	// <= '9'?
+	sltiu t0, a4, 57	// <= '9'? (57 is '9')
 	bnez t0, 3f
-	sltiu t0, a4, 17	// < 'A'? (17 is 'A'-'0')
+	sltiu t0, a4, 65	// < 'A'? (17 is 'A')
 	bnez t0, 4f
-	addiw a4, a4, 10
 
-3:	slt t0, a4, a3		// >= BASE?
+3:	addi a4, a4, -'0'
+	slt t0, a4, a3		// >= BASE?
 	beqz t0, 4f
 
 	// OK, so add it to a0 and loop.
@@ -1968,7 +1968,7 @@ _NUMBER:
 	addiw a1, a1, -1
 	bnez a1, 1b
 
-	// Negate the result if first character was '-' (a5 = 0?).
+4:	// Negate the result if first character was '-' (a5 = 0?).
 	bnez a5, 5f
 	neg a0, a0
 
@@ -2696,7 +2696,6 @@ _COMMA:
 	RCALL _TCFA		// Convert dictionary entry (in a0) to codeword pointer.
 	POP t0
 	andi t0, t0, F_IMMED	// Is IMMED flag set?
-	subw t0, t0, t0
 	bnez t0, 4f		// If IMMED, jump straight to executing.
 
 	j 2f
@@ -2725,6 +2724,7 @@ _COMMA:
 
 	// Not a literal, execute it now.  This never returns, but the codeword will
 	// eventually call NEXT which will reenter the loop in QUIT.
+	lw a0, 0(a0)
 	jr a0
 
 5:	// Executing a literal, which means push it on the stack.
