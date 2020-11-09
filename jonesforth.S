@@ -1755,7 +1755,7 @@ _KEY:
 	beqz a2, 1f		// exhausted the input buffer?
 	lb a0, 0(a1)		// get next key from input buffer
 	addiw a3, a1, +1
-	sb a3, 0(t1)		// increment currkey
+	sw a3, 0(t1)		// increment currkey
 	ret
 
 1:	// Out of input; use read(2) to fetch more input from stdin.
@@ -2724,8 +2724,8 @@ _COMMA:
 
 	// Not a literal, execute it now.  This never returns, but the codeword will
 	// eventually call NEXT which will reenter the loop in QUIT.
-	lw a0, 0(a0)
-	jr a0
+	lw t0, 0(a0)
+	jr t0
 
 5:	// Executing a literal, which means push it on the stack.
 	PUSH a1
