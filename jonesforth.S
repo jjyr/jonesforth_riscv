@@ -1460,19 +1460,12 @@ _COPY_BYTES:
 	slti a4, a0, 4		// check if length is < 4
 	beqz a4, 1b
 2:	// copy byte
-	lw a3, 0(a2)		// source word
-	lw a4, 0(a1)		// destination word
-	li a6, 8
-	mul a5, a6, a0		// 8 * length: bits we need to copy
-	sllw a4, a4, a5		// clear copied bytes from destination word
-	srlw a4, a4, a5
-	li t0, 4
-	subw a5, t0, a0		// 8 * (4 - length): bits we need to keep
-	mul a5, a6, a5
-	srlw a3, a3, a5		// clear uncopied bytes from source word
-	sllw a3, a3, a5
-	addw a3, a3, a4		// combine bytes
-	sw a3, 0(a1)
+	lb a3, 0(a2)
+	sb a3, 0(a1)
+	addiw a0, a0, -1
+	addiw a1, a1, 1
+	addiw a2, a2, 1
+	bnez a0, 2b
 	ret
 
 /*
@@ -1872,8 +1865,10 @@ _WORD:
 1:
 	RCALL _KEY		// get next key, returned in %eax
 	addiw a1, a0, -'\\'	// start of a comment?
-	beqz a1, 3f		// if so, skip the comment
+	beqz a1, 4f		// if so, skip the comment
 	addiw a1, a0, -' '
+	beqz a1, 1b
+	addiw a1, a0, -'\n'
 	beqz a1, 1b		// if so, keep looking
 
 	/* Search for the end of the word, storing chars as we go. */
@@ -1885,18 +1880,21 @@ _WORD:
 	RCALL _KEY		// get next key, returned in %al
 	POP a2
 	addiw a1, a0, -' '	// is blank?
-	bnez a1, 2b		// if not, keep looping
-
+	beqz a1, 3f		// if not, keep looping
+	addiw a1, a0, -'\n'
+	beqz a1, 3f
+	j 2b
+3:
 	/* Return the word (well, the static buffer) and length. */
 	la a0, word_buffer	// return address of the word
 	subw a1, a2, a0		// return length of the word
 	ret
 
 	/* Code to skip \ comments to end of the current line. */
-3:
+4:
 	RCALL _KEY
 	addiw a1, a0, -'\n'	// end of line yet?
-	bnez a1, 3b
+	bnez a1, 4b
 	j 1b
 
 	.data			// NB: easier to fit in the .data section
