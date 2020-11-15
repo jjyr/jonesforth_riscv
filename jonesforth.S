@@ -1455,6 +1455,7 @@ _COPY_BYTES:
 	lw a3, 0(a2)
 	sw a3, 0(a1)		// copy source to destination
 	addiw a0, a0, -4		// update length, destination, source
+	beqz a0, 3f
 	addiw a1, a1, 4
 	addiw a2, a2, 4
 	slti a4, a0, 4		// check if length is < 4
@@ -1466,6 +1467,7 @@ _COPY_BYTES:
 	addiw a1, a1, 1
 	addiw a2, a2, 1
 	bnez a0, 2b
+3:
 	ret
 
 /*
@@ -1516,7 +1518,7 @@ var_\name :
 */
 	defvar "STATE",5,,STATE,,CMOVE
 	defvar "HERE",4,,HERE,,STATE
-	defvar "LATEST",6,,LATEST,name_SYSCALL0,STATE // SYSCALL0 must be last in built-in dictionary
+	defvar "LATEST",6,,LATEST,name_SYSCALL0,HERE // SYSCALL0 must be last in built-in dictionary
 	defvar "S0",2,,SZ,,LATEST
 	defvar "BASE",4,,BASE,10,SZ
 
@@ -1854,6 +1856,17 @@ emit_scratch:
 	and immediate mode, and you'll understand why.
 */
 
+
+	/* set 0 to result register if the src register is a blank char */
+	.macro IS_BLANK result, src
+	addiw \result, \src, -' '
+	beqz \result, 42f
+	addiw \result, \src, -'\n'
+	beqz \result, 42f
+	addiw \result, \src, -'\t'
+42:
+	.endm
+
 	defcode "WORD",4,,WORD, EMIT
 	RCALL _WORD
 	PUSH a0		// push base address
@@ -1866,9 +1879,7 @@ _WORD:
 	RCALL _KEY		// get next key, returned in %eax
 	addiw a1, a0, -'\\'	// start of a comment?
 	beqz a1, 4f		// if so, skip the comment
-	addiw a1, a0, -' '
-	beqz a1, 1b
-	addiw a1, a0, -'\n'
+	IS_BLANK a1, a0
 	beqz a1, 1b		// if so, keep looking
 
 	/* Search for the end of the word, storing chars as we go. */
@@ -1879,10 +1890,8 @@ _WORD:
 	PUSH a2
 	RCALL _KEY		// get next key, returned in %al
 	POP a2
-	addiw a1, a0, -' '	// is blank?
+	IS_BLANK a1, a0	// is blank?
 	beqz a1, 3f		// if not, keep looping
-	addiw a1, a0, -'\n'
-	beqz a1, 3f
 	j 2b
 3:
 	/* Return the word (well, the static buffer) and length. */
