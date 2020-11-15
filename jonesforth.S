@@ -1961,13 +1961,14 @@ _NUMBER:
 	// Convert 0-9, A-Z to a number 0-35.
 2:	sltiu t0, a4, '0'	// < '0'?
 	bnez t0, 4f
-	sltiu t0, a4, 57	// <= '9'? (57 is '9')
+	addiw a4, a4, -'0'
+	sltiu t0, a4, 10	// <= '9'?
 	bnez t0, 3f
-	sltiu t0, a4, 65	// < 'A'? (17 is 'A')
+	sltiu t0, a4, 17	// < 'A'? (17 is 'A' - '0')
 	bnez t0, 4f
+	addiw a4, a4, -7	// Char - 'A' + 10
 
-3:	addi a4, a4, -'0'
-	slt t0, a4, a3		// >= BASE?
+3:	slt t0, a4, a3		// >= BASE?
 	beqz t0, 4f
 
 	// OK, so add it to a0 and loop.
