@@ -1086,7 +1086,8 @@ code_\label :			// assembler code follows
 	POP a0
 	POP a1
 	slt t0, a0, a1 // if a1 <= a0, then !(a0 < a1)
-	not t0, t0
+	li t1, 1
+	subw t0, t1, t0
 	PUSH t0
 	NEXT
 
@@ -1103,7 +1104,8 @@ code_\label :			// assembler code follows
 	POP a0
 	POP a1
 	slt t0, a1, a0          // if a1 >= a0, then !(a1 < a0)
-	not t0, t0
+	li t1, 1
+	subw t0, t1, t0
 	PUSH t0
 	NEXT
 
@@ -1174,7 +1176,8 @@ code_\label :			// assembler code follows
 	defcode "0<=",3,,ZLE, ZGT
 	POP a0
 	slt t0, zero, a0
-	not t0, t0
+	li t1, 1
+	subw t0, t1, t0
 	PUSH t0
 	NEXT
 
@@ -1189,7 +1192,8 @@ code_\label :			// assembler code follows
 	defcode "0>=",3,,ZGE, ZLE
 	POP a0
 	slt t0, a0, zero
-	not t0, t0
+	li t1, 1
+	subw t0, t1, t0
 	PUSH t0
 	NEXT
 
