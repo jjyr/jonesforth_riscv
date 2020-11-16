@@ -495,7 +495,7 @@
 
 	.macro POP reg
 	lw \reg, 0(sp)		// pop top of return stack to reg
-	addi sp, sp, +4
+	addi sp, sp, 4
 	.endm
 
 	.macro PUSHRSP reg
@@ -505,12 +505,12 @@
 
 	.macro POPRSP reg
 	lw \reg, 0(fp)            	// pop top of return stack to reg
-	addi fp, fp, +4
+	addi fp, fp, 4
 	.endm
 
-/* Macros to help us handling function calls.
- This macro saves all nessary registers before a call
-  and resume these registers after the call */
+	/* Macros to help us handling function calls. 
+	This macro saves all nessacery registers before a function call 
+	and resume these registers after the call */
 	.macro RCALL symbol
 	PUSH ra					// push ra (return address) on to stack
 	call \symbol
@@ -538,7 +538,7 @@
 	.balign 4
 DOCOL:
 	PUSHRSP s1		// push s1 on to the return stack
-	addiw a0, a0, +4 	// a0 points to codeword, so make
+	addiw a0, a0, 4 	// a0 points to codeword, so make
 	mv s1, a0		// s1 point to first data word
 	NEXT
 
@@ -799,7 +799,7 @@ code_\label :			// assembler code follows
 
 	defcode "1+",2,,INCR, QDUP
 	POP a0
-	addiw a0, a0, +1         // increment top of stack
+	addiw a0, a0, 1         // increment top of stack
 	PUSH a0
 	NEXT
 
@@ -811,7 +811,7 @@ code_\label :			// assembler code follows
 
 	defcode "4+",2,,INCR4, DECR
 	POP a0
-	addiw a0, a0, +4		// add 4 to top of stack
+	addiw a0, a0, 4		// add 4 to top of stack
 	PUSH a0
 	NEXT
 
@@ -1129,7 +1129,7 @@ code_\label :			// assembler code follows
 	lb a2, 0(a1)		// get source character
 	sb a2, 0(a0)		// copy to destination
 	PUSH a0			// increment destination address
-	addiw a1, a1, +4		// increment source address
+	addiw a1, a1, 4		// increment source address
 	PUSH a1
 	NEXT
 
@@ -1295,7 +1295,7 @@ var_\name :
 	NEXT
 
 	defcode "RDROP",5,,RDROP, RSPSTORE
-	addi fp, fp, +4		// pop return stack and throw away
+	addi fp, fp, 4		// pop return stack and throw away
 	NEXT
 
 /*
@@ -1366,7 +1366,7 @@ _KEY:
 	sltu a2, a1, t0
 	beqz a2, 1f			// exhausted the input buffer?
 	lb a0, 0(a1)		// get next key from input buffer
-	addiw a3, a1, +1
+	addiw a3, a1, 1
 	sw a3, 0(t1)		// increment currkey
 	ret
 
@@ -1483,7 +1483,7 @@ _WORD:
 	la a2, word_buffer	// pointer to return buffer
 2:
 	sb a0, 0(a2)		// add character to return buffer
-	addiw a2, a2, +1
+	addiw a2, a2, 1
 	PUSH a2
 	RCALL _KEY		// get next key, returned in a0
 	POP a2
@@ -1542,7 +1542,7 @@ _NUMBER:
 
 	// Check if first character is '-'.
 	lb a4, 0(a2)		// a4 = first character in string
-	addiw a2, a2, +1
+	addiw a2, a2, 1
 	addiw a5, a4, -'-'	// negative number?
 	bnez a5, 2f		// number is negative if a5 = 0
 	addiw a1, a1, -1
@@ -1553,7 +1553,7 @@ _NUMBER:
 	// Loop reading digits.
 1:	mul a0, a0, a3		// a0 *= BASE
 	lb a4, 0(a2)		// a4 = next character in string
-	addiw a2, a2, +1
+	addiw a2, a2, 1
 
 	// Convert 0-9, A-Z to a number 0-35.
 2:	sltiu t0, a4, '0'	// < '0'?
