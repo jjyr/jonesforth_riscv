@@ -1456,12 +1456,8 @@ emit_scratch:
 	/* Macro to help us check a character is or is'nt blank. 
 	Set 0 to the result register if the src register is a blank char */
 	.macro IS_BLANK result, src
-	addiw \result, \src, -' '
-	beqz \result, 42f
-	addiw \result, \src, -'\n'
-	beqz \result, 42f
-	addiw \result, \src, -'\t'
-42:
+	li t0, ' '
+	slt \result, t0, \src		// is src reg >= ' '?
 	.endm
 
 	defcode "WORD",4,,WORD, EMIT
