@@ -43,10 +43,10 @@ run_perf_dupdrop: jonesforth
 .PHONY: test check run run_perf_dupdrop
 
 push-remote:
-	sshpass -p "riscv" scp -P 1234 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -r . root@localhost:/jonesforth
+	sshpass -p "riscv" scp -P 4321 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -r . root@localhost:/jonesforth
 
 ssh:
-	sshpass -p "riscv" ssh -p 1234 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@localhost
+	sshpass -p "riscv" ssh -p 4321 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@localhost
 
 qemu:
-	docker run -p 1234:10000 tsunetsune/docker-riscv-qemu-fedora:0.1
+	docker run --name riscv-qemu-fedora -p 4321:10000 jjy0/riscv-qemu-fedora

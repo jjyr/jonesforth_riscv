@@ -18,6 +18,8 @@ Run Qemu VM:
 2. Push files to qemu VM: `make push-remote` - the files are under `/jonesforth`.
 3. Connect to RISC-V VM: `make ssh`.
 
+> The docker image is very large, you can build it locally if you can't download it from server https://github.com/jjyr/docker-riscv-qemu-fedora
+
 Compile & Run:
 
 1. Compile `make`.
