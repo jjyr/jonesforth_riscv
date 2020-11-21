@@ -1500,6 +1500,7 @@ _WORD:
 	j 1b
 
 	.data			// NB: easier to fit in the .data section
+	.balign 4
 	// A static buffer where WORD returns.  Subsequent calls
 	// overwrite this buffer.  Maximum word length is 32 chars.
 word_buffer:
@@ -2312,7 +2313,8 @@ errmsgnl: .ascii "\n"
 
 	defcode "EXECUTE",7,,EXECUTE,CHAR
 	POP a0			// Get xt into a0
-	jr a0			// and jump to it.
+	lw t0, 0(a0)
+	jr t0			// and jump to it.
 				// After xt runs its NEXT will continue executing the current word.
 
 	defcode "SYSCALL3",8,,SYSCALL3,EXECUTE
