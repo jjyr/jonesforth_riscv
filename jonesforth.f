@@ -448,7 +448,7 @@
 	detect this and do different things).
 
 	In compile mode we append
-		LITSTRING <string length> <string rounded up 4 bytes>
+		LITSTRING <string length> <string rounded up 8 bytes>
 	to the current word.  The primitive LITSTRING does the right thing when the current
 	word is executed.
 
@@ -476,9 +476,9 @@
 		DROP		( drop the double quote character at the end )
 		DUP		( get the saved address of the length word )
 		HERE @ SWAP -	( calculate the length )
-		8-		( subtract 4 (because we measured from the start of the length word) )
+		8-		( subtract 8 (because we measured from the start of the length word) )
 		SWAP !		( and back-fill the length location )
-		ALIGN		( round up to next multiple of 4 bytes for the remaining code )
+		ALIGN		( round up to next multiple of 8 bytes for the remaining code )
 	ELSE		( immediate mode )
 		HERE @		( get the start address of the temporary space )
 		BEGIN
@@ -504,7 +504,7 @@
 	the next double quote.
 
 	In compile mode we use S" to store the string, then add TELL afterwards:
-		LITSTRING <string length> <string rounded up to 4 bytes> TELL
+		LITSTRING <string length> <string rounded up to 8 bytes> TELL
 
 	It may be interesting to note the use of [COMPILE] to turn the call to the immediate
 	word S" into compilation of that word.  It compiles it into the definition of .",
@@ -615,8 +615,8 @@
 	arbitrary memory from the user memory.
 
 	First ALLOT, where n ALLOT allocates n bytes of memory.  (Note when calling this that
-	it's a very good idea to make sure that n is a multiple of 4, or at least that next time
-	a word is compiled that HERE has been left as a multiple of 4).
+	it's a very good idea to make sure that n is a multiple of 8, or at least that next time
+	a word is compiled that HERE has been left as a multiple of 8).
 )
 : ALLOT		( n -- addr )
 	HERE @ SWAP	( here n )
@@ -626,7 +626,7 @@
 (
 	Second, CELLS.  In FORTH the phrase 'n CELLS ALLOT' means allocate n integers of whatever size
 	is the natural size for integers on this machine architecture.  On this 32 bit machine therefore
-	CELLS just multiplies the top of stack by 4.
+	CELLS just multiplies the top of stack by 8.
 )
 : CELLS ( n -- n ) 8 * ;
 
@@ -1058,11 +1058,11 @@
 		' LITSTRING OF		( is it LITSTRING ? )
 			[ CHAR S ] LITERAL EMIT '"' EMIT SPACE ( print S"<space> )
 			8 + DUP @		( get the length word )
-			SWAP 8 + SWAP		( end start+4 length )
+			SWAP 8 + SWAP		( end start+8 length )
 			2DUP TELL		( print the string )
 			'"' EMIT SPACE		( finish the string with a final quote )
-			+ ALIGNED		( end start+4+len, aligned )
-			8 -			( because we're about to add 4 below )
+			+ ALIGNED		( end start+8+len, aligned )
+			8 -			( because we're about to add 8 below )
 		ENDOF
 		' 0BRANCH OF		( is it 0BRANCH ? )
 			." 0BRANCH ( "
@@ -1087,7 +1087,7 @@
 			  because EXIT is normally implied by ;.  EXIT can also appear in the middle
 			  of words, and then it needs to be printed. )
 			2DUP			( end start end start )
-			8 +			( end start end start+4 )
+			8 +			( end start end start+8 )
 			<> IF			( end start | we're not at the end )
 				." EXIT "
 			THEN
@@ -1098,7 +1098,7 @@
 			ID. SPACE		( and print it )
 		ENDCASE
 
-		8 +		( end start+4 )
+		8 +		( end start+8 )
 	REPEAT
 
 	';' EMIT CR
@@ -1286,7 +1286,7 @@
 ;
 
 : CATCH		( xt -- exn? )
-	DSP@ 8+ >R		( save parameter stack pointer (+4 because of xt) on the return stack )
+	DSP@ 8+ >R		( save parameter stack pointer (+8 because of xt) on the return stack )
 	' EXCEPTION-MARKER 4+	( push the address of the RDROP inside EXCEPTION-MARKER ... )
 	>R			( ... on to the return stack so it acts like a return address )
 	EXECUTE			( execute the nested function )
@@ -1412,9 +1412,9 @@
 		DROP		( drop the double quote character at the end )
 		DUP		( get the saved address of the length word )
 		HERE @ SWAP -	( calculate the length )
-		8-		( subtract 4 (because we measured from the start of the length word) )
+		8-		( subtract 8 (because we measured from the start of the length word) )
 		SWAP !		( and back-fill the length location )
-		ALIGN		( round up to next multiple of 4 bytes for the remaining code )
+		ALIGN		( round up to next multiple of 8 bytes for the remaining code )
 		' DROP ,	( compile DROP (to drop the length) )
 	ELSE		( immediate mode )
 		HERE @		( get the start address of the temporary space )
@@ -1464,7 +1464,7 @@
 
 	Starting at S0, S0 itself points to argc (the number of command line arguments).
 
-	S0+4 points to argv[0], S0+8 points to argv[1] etc up to argv[argc-1].
+	S0+8 points to argv[0], S0+8 points to argv[1] etc up to argv[argc-1].
 
 	argv[argc] is a NULL pointer.
 
@@ -1535,7 +1535,7 @@
 ;
 
 (
-	MORECORE increases the data segment by the specified number of (4 byte) cells.
+	MORECORE increases the data segment by the specified number of (8 byte) cells.
 
 	NB. The number of cells requested should normally be a multiple of 1024.  The
 	reason is that Linux can't extend the data segment by less than a single page

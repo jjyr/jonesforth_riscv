@@ -1,16 +1,15 @@
 /*      RISC-V implementation of jones forth.
-	This repository is intended to rewrite the jones FORTH compiler and tutorial into RISC-V ISA.
+	This repository is intended to migrate the jonesforth compiler and tutorial to RISC-V ISA.
 
-	The code part of this tutorial is rewritten into RISC-V ASM
-	By JJy <jjyruby@gmail.com> https://justjjy.com,
-	other part of this tutorial is almost untouched 
-	unless it is related to the RISC-V ISA.
+	The assembler is rewritten into RISC-V 64 by JJy <jjyruby@gmail.com> https://justjjy.com,
+	and all the instructions are replaced with RISC-V,
+	ISA unrelated parts of the tutorial are kept untouched.
 
-	So you can use this tutorial just like the original one 
-	except the compiler is run on the Linux / RISCVI64.
+	So you can use this tutorial just like the original one but for RISC-V ISA.
 
 	All the additional work is released under the same PUBLIC DOMAIN
-	just like the original compiler / tutorial.
+
+	The original file header:
  */
 
 /*	A sometimes minimal FORTH compiler and tutorial for Linux / i386 systems. -*- asm -*-
@@ -130,13 +129,13 @@
 	could have done, I went for a simpler tutorial by assuming that the 'hardware' is a Linux
 	process with a few basic system calls (read, write and exit and that's about all).  RISC-V
 	is needed because I had to write the assembly for a processor. 
-	(Of course when I say 'RISC-V', any 32- or 64-bit RISC-V processor or VM will do.  
-	I'm compiling this on a 64 bit AMD Opteron).
+	(Of course when I say 'RISC-V', any 64-bit RISC-V processor or VM will do.  
+	I'm compiling this on a qemu VM).
 
 	Again, to assemble this you will need gcc and gas (the GNU assembler).  The commands to
 	assemble and run the code (save this file as 'jonesforth.S') are:
 
-	gcc -m32 -nostdlib -static -Wl,-Ttext,0 -Wl,--build-id=none -o jonesforth jonesforth.S
+	gcc -nostdlib -static -o jonesforth jonesforth.S
 	cat jonesforth.f - | ./jonesforth
 
 	If you want to run your own FORTH programs you can do:
@@ -190,15 +189,15 @@
 	+------------------------+--------+---------- - - - - +----------- - - - -
 	| LINK POINTER           | LENGTH/| NAME	      | DEFINITION
 	|			 | FLAGS  |     	      |
-	+--- (4 bytes) ----------+- byte -+- n bytes  - - - - +----------- - - - -
+	+--- (8 bytes) ----------+- byte -+- n bytes  - - - - +----------- - - - -
 
 	I'll come to the definition of the word later.  For now just look at the header.  The first
-	4 bytes are the link pointer.  This points back to the previous word in the dictionary, or, for
+	8 bytes are the link pointer.  This points back to the previous word in the dictionary, or, for
 	the first word in the dictionary it is just a NULL pointer.  Then comes a length/flags byte.
 	The length of the word can be up to 31 characters (5 bits used) and the top three bits are used
 	for various flags which I'll come to later.  This is followed by the name itself, and in this
-	implementation the name is rounded up to a multiple of 4 bytes by padding it with zero bytes.
-	That's just to ensure that the definition starts on a 32 bit boundary.
+	implementation the name is rounded up to a multiple of 8 bytes by padding it with zero bytes.
+	That's just to ensure that the definition starts on a 64 bit boundary.
 
 	A FORTH variable called LATEST contains a pointer to the most recently defined word, in
 	other words, the head of this linked list.
@@ -293,8 +292,9 @@
 	  s1 -> 1C 00 00 00
 		2C 00 00 00
 
-	The all-important instructions are called `lw` and `addi`. Firstly `lw` reads the memory 
-	at s1 into the register (a0).  Secondly `addi` increments s1 by 4 bytes.  
+	The all-important instructions are called `ld` and `addi`. Firstly `ld` reads the memory 
+	at s1 into the register (a0).  Secondly `addi` increments s1 by 8 bytes
+	(we are on a 64 bits machine, the pointer size is 64 bits).  
 	So after the two instructions, the situation now looks like this:
 
 		08 00 00 00	<- We're still executing this one
@@ -302,7 +302,7 @@
 	  s1 -> 2C 00 00 00
 
 	Now we just need to jump to the address in a0.  This is again needs two instructions:
-	firstly `lw t0, 0(a0)` to load the jump address to t0, then `jalr t0` to jump to the address.
+	firstly `ld t0, 0(a0)` to load the jump address to t0, then `jalr t0` to jump to the address.
 	And after doing the jump, the situation looks like:
 
 		08 00 00 00
@@ -310,7 +310,7 @@
 	  s1 -> 2C 00 00 00
 
 	To make this work, each subroutine is followed by the four instructions: 
-	'lw a0, 0(s1); addi s1, s1, 4; lw t0, 0(a0); jalr t0'
+	'ld a0, 0(s1); addi s1, s1, 8; ld t0, 0(a0); jalr t0'
 	which make the jump to the next subroutine.
 
 	And that brings us to our first piece of actual code!  Well, it's a macro.
@@ -362,7 +362,7 @@
 	We can add an extra indirection to allow us to run both words written in assembly language
 	(primitives written for speed) and words written in FORTH themselves as lists of addresses.
 
-	The extra indirection is the reason for the `lw t0, 0(a0)`.
+	The extra indirection is the reason for the `ld t0, 0(a0)`.
 
 	Let's have a look at how QUADRUPLE and DOUBLE really look in FORTH:
 
@@ -411,7 +411,7 @@
 	The assembly code for DUP eventually does a NEXT.  That:
 
 	(1) reads the address of + into a0		a0 points to the codeword of +
-	(2) increments s1 by 4
+	(2) increments s1 by 8
 	(3) jumps to the indirect t0			jumps to the address in the codeword of +,
 							ie. the assembly code to implement +
 
@@ -489,17 +489,17 @@
 
 /* Macros to deal with the return stack. */
 	.macro PUSH reg
-	addi sp, sp, -8         // push reg on to stack
+	addi sp, sp, -8			// push reg on to stack
 	sd \reg, 0(sp)
 	.endm
 
 	.macro POP reg
-	ld \reg, 0(sp)		// pop top of return stack to reg
+	ld \reg, 0(sp)			// pop top of return stack to reg
 	addi sp, sp, 8
 	.endm
 
 	.macro PUSHRSP reg
-	addi fp, fp, -8                   // push  reg on to stack
+	addi fp, fp, -8			// push  reg on to stack
 	sd \reg, 0(fp)
 	.endm
 
@@ -526,8 +526,8 @@
 
 	The "interpreter" (it's not really "interpreting") just needs to push the old s1 on the
 	stack and set s1 to the first word in the definition.  Remember that we jumped to the
-	function using `lw t0, 0(a0); jalr t0`?  Well a consequence of that is that conveniently a0 contains
-	the address of this codeword, so just by adding 4 to it we get the address of the first
+	function using `ld t0, 0(a0); jalr t0`?  Well a consequence of that is that conveniently a0 contains
+	the address of this codeword, so just by adding 8 to it we get the address of the first
 	data word.  Finally after setting up s1, it just does NEXT which causes that first word
 	to run.
 */
@@ -559,7 +559,7 @@ DOCOL:
 
 	First, the call to DOUBLE calls DOCOL (the codeword of DOUBLE).  DOCOL does this:  It
 	pushes the old s1 on the return stack.  a0 points to the codeword of DOUBLE, so we
-	just add 4 on to it to get our new s1:
+	just add 8 on to it to get our new s1:
 
 		QUADRUPLE:
 		+------------------+
@@ -567,7 +567,7 @@ DOCOL:
 		+------------------+		   DOUBLE:
 		| addr of DOUBLE  ---------------> +------------------+
 top of return	+------------------+         a0 -> | addr of DOCOL    |
-stack points ->	| addr of DOUBLE   |	   + 4 =   +------------------+
+stack points ->	| addr of DOUBLE   |	   + 8 =   +------------------+
 		+------------------+	     s1 -> | addr of DUP      |
 		| addr of EXIT	   |		   +------------------+
 		+------------------+               | etc.             |
@@ -674,7 +674,7 @@ name_\label :
 	.dword name_\link		// link
 	.byte \flags+\namelen	// flags + length byte
 	.ascii "\name"		// the name
-	.balign 8		// padding to next 4 byte boundary
+	.balign 8		// padding to next 8 byte boundary
 	.globl \label
 \label :
 	.dword DOCOL		// codeword - the interpreter
@@ -711,7 +711,7 @@ name_\label :
 	.dword name_\link		// link
 	.byte \flags+\namelen	// flags + length byte
 	.ascii "\name"		// the name
-	.balign 8		// padding to next 4 byte boundary
+	.balign 8		// padding to next 8 byte boundary
 	.globl \label
 \label :
 	.dword code_\label	// codeword
@@ -1159,7 +1159,7 @@ code_\label :			// assembler code follows
 	a2: source address
 */
 _COPY_BYTES:
-	slti a4, a0, 8		// jump to copy byte if length is < 4
+	slti a4, a0, 8		// jump to copy byte if length is < 8
 	bnez a4, 2f
 1:	// copy word by word
 	ld a3, 0(a2)
@@ -1697,7 +1697,7 @@ _TCFA:
 	andi a1, a1, F_LENMASK	// Just the length, not the flags.
 	addi a0, a0, 9		// Skip link pointer and flags+len byte.
 	add a0, a0, a1		// Skip the name.
-	addi a0, a0, 7		// The codeword is 4-byte aligned.
+	addi a0, a0, 7		// The codeword is 8-byte aligned.
 	andi a0, a0, ~7
 	ret
 
@@ -1719,12 +1719,12 @@ _TCFA:
 	(Note to those following the source of FIG-FORTH / ciforth: My >DFA definition is
 	different from theirs, because they have an extra indirection).
 
-	You can see that >DFA is easily defined in FORTH just by adding 4 to the result of >CFA.
+	You can see that >DFA is easily defined in FORTH just by adding 8 to the result of >CFA.
 */
 
 	defword ">DFA",4,,TDFA, TCFA
 	.dword TCFA		// >CFA		(get code field address)
-	.dword INCR8		// 4+		(add 4 to it to get to next word)
+	.dword INCR8		// 8+		(add 8 to it to get to next word)
 	.dword EXIT		// EXIT		(return from FORTH word)
 
 /*
@@ -1903,7 +1903,7 @@ _TCFA:
 	POP a1
 	POP a0
 	add a1, a1, a0		// a1 is the address of the end of word
-	addi a1, a1, 7		// Align to next 4 byte boundary.
+	addi a1, a1, 7		// Align to next 8 byte boundary.
 	andi a1, a1, ~7
 
 	// Update LATEST and HERE.
@@ -1919,7 +1919,7 @@ _TCFA:
 	to use.
 
 	The first is , (COMMA) which is a standard FORTH word which appends a 32 bit integer to the user
-	memory pointed to by HERE, and adds 4 to HERE.  So the action of , (COMMA) is:
+	memory pointed to by HERE, and adds 8 to HERE.  So the action of , (COMMA) is:
 
 							previous value of HERE
 								 |
@@ -2177,7 +2177,7 @@ _COMMA:
 	PUSH s1			// push the address of the start of the string
 	PUSH a0			// push it on the stack
 	add s1, s1, a0		// skip past the string
- 	addi s1, s1, 7		// but round up to next 4 byte boundary
+ 	addi s1, s1, 7		// but round up to next 8 byte boundary
 	andi s1, s1, ~7
 	NEXT
 
@@ -2385,7 +2385,7 @@ errmsgnl: .ascii "\n"
 	You don't need to worry about this code.
 */
 	.text
-	.set INITIAL_DATA_SEGMENT_SIZE,65536
+	.set INITIAL_DATA_SEGMENT_SIZE,262144
 set_up_data_segment:
 	mv a0, zero		// Call brk(0)
 	li a7, __NR_brk
