@@ -1323,7 +1323,8 @@ var_\name :
 	NEXT
 
 	defcode "DSP!",4,,DSPSTORE, DSPFETCH
-	POP sp
+	POP a0
+	mv sp, a0
 	NEXT
 
 /*
