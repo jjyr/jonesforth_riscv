@@ -293,8 +293,8 @@
 	  s1 -> 1C 00 00 00
 		2C 00 00 00
 
-	The all-important instructions are called `lw` and `addiw`. Firstly `lw` reads the memory 
-	at s1 into the register (a0).  Secondly `addiw` increments s1 by 4 bytes.  
+	The all-important instructions are called `lw` and `addi`. Firstly `lw` reads the memory 
+	at s1 into the register (a0).  Secondly `addi` increments s1 by 4 bytes.  
 	So after the two instructions, the situation now looks like this:
 
 		08 00 00 00	<- We're still executing this one
@@ -320,9 +320,9 @@
 /* use s1 pointing to the interpreter pc
  */
 	.macro NEXT
-	lw a0, 0(s1)
-	addi s1, s1, 4
-	lw t0, 0(a0)
+	ld a0, 0(s1)
+	addi s1, s1, 8
+	ld t0, 0(a0)
 	jalr t0
 	.endm
 
@@ -489,23 +489,23 @@
 
 /* Macros to deal with the return stack. */
 	.macro PUSH reg
-	addi sp, sp, -4         // push reg on to stack
-	sw \reg, 0(sp)
+	addi sp, sp, -8         // push reg on to stack
+	sd \reg, 0(sp)
 	.endm
 
 	.macro POP reg
-	lw \reg, 0(sp)		// pop top of return stack to reg
-	addi sp, sp, 4
+	ld \reg, 0(sp)		// pop top of return stack to reg
+	addi sp, sp, 8
 	.endm
 
 	.macro PUSHRSP reg
-	addi fp, fp, -4                   // push  reg on to stack
-	sw \reg, 0(fp)
+	addi fp, fp, -8                   // push  reg on to stack
+	sd \reg, 0(fp)
 	.endm
 
 	.macro POPRSP reg
-	lw \reg, 0(fp)            	// pop top of return stack to reg
-	addi fp, fp, 4
+	ld \reg, 0(fp)            	// pop top of return stack to reg
+	addi fp, fp, 8
 	.endm
 
 	/* Macros to help us handling function calls. 
@@ -535,10 +535,10 @@
 /* DOCOL - the interpreter! */
 
 	.text
-	.balign 4
+	.balign 8
 DOCOL:
 	PUSHRSP s1		// push s1 on to the return stack
-	addiw a0, a0, 4 	// a0 points to codeword, so make
+	addi a0, a0, 8	 	// a0 points to codeword, so make
 	mv s1, a0		// s1 point to first data word
 	NEXT
 
@@ -604,7 +604,7 @@ stack points ->	| addr of DOUBLE   |	   + 4 =   +------------------+
 	.globl _start
 _start:
 	la t0, var_S0
-	sw sp, 0(t0)		// Save the initial data stack pointer in FORTH variable S0.
+	sd sp, 0(t0)		// Save the initial data stack pointer in FORTH variable S0.
 	la fp, return_stack_top        // Initialise the return stack.
 	call set_up_data_segment
 
@@ -612,9 +612,9 @@ _start:
 	NEXT			        // Run interpreter!
 
 	.section .rodata
-	.balign 4
+	.balign 8
 cold_start:			// High-level code without a codeword.
-	.int QUIT
+	.dword QUIT
 
 /*
 	BUILT-IN WORDS ----------------------------------------------------------------------
@@ -635,25 +635,25 @@ cold_start:			// High-level code without a codeword.
 	Initially we can't just write ": DOUBLE DUP + ;" (ie. that literal string) here because we
 	don't yet have anything to read the string, break it up at spaces, parse each word, etc. etc.
 	So instead we will have to define built-in words using the GNU assembler data constructors
-	(like .int, .byte, .string, .ascii and so on -- look them up in the gas info page if you are
+	(like .dword, .byte, .string, .ascii and so on -- look them up in the gas info page if you are
 	unsure of them).
 
 	The long way would be:
 
-	.int <link to previous word>
+	.dword <link to previous word>
 	.byte 6			// len
 	.ascii "DOUBLE"		// string
 	.byte 0			// padding
-DOUBLE: .int DOCOL		// codeword
-	.int DUP		// pointer to codeword of DUP
-	.int PLUS		// pointer to codeword of +
-	.int EXIT		// pointer to codeword of EXIT
+DOUBLE: .dword DOCOL		// codeword
+	.dword DUP		// pointer to codeword of DUP
+	.dword PLUS		// pointer to codeword of +
+	.dword EXIT		// pointer to codeword of EXIT
 
 	That's going to get quite tedious rather quickly, so here I define an assembler macro
 	so that I can just write:
 
 	defword "DOUBLE",6,,DOUBLE
-	.int DUP,PLUS,EXIT
+	.dword DUP,PLUS,EXIT
 
 	and I'll get exactly the same effect.
 
@@ -668,16 +668,16 @@ DOUBLE: .int DOCOL		// codeword
 	// Store the chain of links.
 	.macro defword name, namelen, flags=0, label, link
 	.section .rodata
-	.balign 4
+	.balign 8
 	.globl name_\label
 name_\label :
-	.int name_\link		// link
+	.dword name_\link		// link
 	.byte \flags+\namelen	// flags + length byte
 	.ascii "\name"		// the name
-	.balign 4		// padding to next 4 byte boundary
+	.balign 8		// padding to next 4 byte boundary
 	.globl \label
 \label :
-	.int DOCOL		// codeword - the interpreter
+	.dword DOCOL		// codeword - the interpreter
 	// list of word pointers follow
 	.endm
 
@@ -705,18 +705,18 @@ name_\label :
 
 	.macro defcode name, namelen, flags=0, label, link
 	.section .rodata
-	.balign 4
+	.balign 8
 	.globl name_\label
 name_\label :
-	.int name_\link		// link
+	.dword name_\link		// link
 	.byte \flags+\namelen	// flags + length byte
 	.ascii "\name"		// the name
-	.balign 4		// padding to next 4 byte boundary
+	.balign 8		// padding to next 4 byte boundary
 	.globl \label
 \label :
-	.int code_\label	// codeword
+	.dword code_\label	// codeword
 	.text
-	.balign 4
+	.balign 8
 	.globl code_\label
 code_\label :			// assembler code follows
 	.endm
@@ -741,12 +741,12 @@ code_\label :			// assembler code follows
 	NEXT
 
 	defcode "DUP",3,,DUP, SWAP
-	lw a0, 0(sp)    		// duplicate top of stack
+	ld a0, 0(sp)    		// duplicate top of stack
 	PUSH a0
 	NEXT
 
 	defcode "OVER",4,,OVER, DUP
-	lw a0, 4(sp)	                // get the second element of stack
+	ld a0, 8(sp)	                // get the second element of stack
 	PUSH a0 		        // and push it on top
 	NEXT
 
@@ -774,8 +774,8 @@ code_\label :			// assembler code follows
 	NEXT
 
 	defcode "2DUP",4,,TWODUP, TWODROP // duplicate top two elements of stack
-	lw a0, 0(sp)
-	lw a1, 4(sp)
+	ld a0, 0(sp)
+	ld a1, 8(sp)
 	PUSH a1
 	PUSH a0
 	NEXT
@@ -792,46 +792,58 @@ code_\label :			// assembler code follows
 	NEXT
 
 	defcode "?DUP",4,,QDUP, TWOSWAP	// duplicate top of stack if non-zero
-	lw a0, 0(sp)
+	ld a0, 0(sp)
 	beqz a0, 1f
 	PUSH a0
 1:	NEXT
 
 	defcode "1+",2,,INCR, QDUP
 	POP a0
-	addiw a0, a0, 1         // increment top of stack
+	addi a0, a0, 1         // increment top of stack
 	PUSH a0
 	NEXT
 
 	defcode "1-",2,,DECR, INCR
 	POP a0
-	addiw a0, a0, -1		// decrement top of stack
+	addi a0, a0, -1		// decrement top of stack
 	PUSH a0
 	NEXT
 
 	defcode "4+",2,,INCR4, DECR
 	POP a0
-	addiw a0, a0, 4		// add 4 to top of stack
+	addi a0, a0, 4		// add 4 to top of stack
 	PUSH a0
 	NEXT
 
 	defcode "4-",2,,DECR4, INCR4
 	POP a0
-	addiw a0, a0, -4 	// subtract 4 from top of stack
+	addi a0, a0, -4 	// subtract 4 from top of stack
 	PUSH a0
 	NEXT
 
-	defcode "+",1,,ADD, DECR4
+	defcode "8+",2,,INCR8, INCR4
+	POP a0
+	addi a0, a0, 8		// add 8 to top of stack
+	PUSH a0
+	NEXT
+
+	defcode "8-",2,,DECR8, INCR8
+	POP a0
+	addi a0, a0, -8 	// subtract 8 from top of stack
+	PUSH a0
+	NEXT
+
+	defcode "+",1,,ADD, DECR8
 	POP a0		// get top of stack
 	POP a1		// get second of stack
-	addw a0, a0, a1	// and add the two number
+	add a0, a0, a1	// and add the two number
 	PUSH a0         // push back the result to stack
 	NEXT
 
 	defcode "-",1,,SUB, ADD
 	POP a0		// get top of stack
 	POP a1		// get second of stack
-	subw a0, a1, a0	// and subtract the two number
+	sub a0, a1, a0	// and subtract the two number
 	PUSH a0         // push back the result to stack
 	NEXT
 
@@ -875,7 +887,7 @@ code_\label :			// assembler code follows
 	defcode "=",1,,EQU, DIVMOD	// top two words are equal?
 	POP a0
 	POP a1
-	subw a0, a0, a1
+	sub a0, a0, a1
 	seqz a0, a0             // set a0 to 1 if a0 is zero
 	PUSH a0
 	NEXT
@@ -883,7 +895,7 @@ code_\label :			// assembler code follows
 	defcode "<>",2,,NEQU, EQU	// top two words are not equal?
 	POP a0
 	POP a1
-	subw a0, a0, a1
+	sub a0, a0, a1
 	sltu a0, zero, a0         // set a0 to 1 if a0 is not equals to zero, otherwise set a0 to 0
 	PUSH a0
 	NEXT
@@ -907,7 +919,7 @@ code_\label :			// assembler code follows
 	POP a1
 	slt t0, a0, a1 // if a1 <= a0, then !(a0 < a1)
 	li t1, 1
-	subw t0, t1, t0
+	sub t0, t1, t0
 	PUSH t0
 	NEXT
 
@@ -916,7 +928,7 @@ code_\label :			// assembler code follows
 	POP a1
 	slt t0, a1, a0          // if a1 >= a0, then !(a1 < a0)
 	li t1, 1
-	subw t0, t1, t0
+	sub t0, t1, t0
 	PUSH t0
 	NEXT
 
@@ -948,7 +960,7 @@ code_\label :			// assembler code follows
 	POP a0
 	slt t0, zero, a0
 	li t1, 1
-	subw t0, t1, t0
+	sub t0, t1, t0
 	PUSH t0
 	NEXT
 
@@ -956,7 +968,7 @@ code_\label :			// assembler code follows
 	POP a0
 	slt t0, a0, zero
 	li t1, 1
-	subw t0, t1, t0
+	sub t0, t1, t0
 	PUSH t0
 	NEXT
 
@@ -1062,9 +1074,9 @@ code_\label :			// assembler code follows
 	defcode "LIT",3,,LIT, EXIT
 	// s1 points to the next command, but in this case it points to the next
 	// literal 32 bit integer.  Get that literal into a0 and increment s1.
-	lw a0, 0(s1)
+	ld a0, 0(s1)
 	PUSH a0			// push the literal number on to stack
-	addi s1, s1, 4		// skip next command
+	addi s1, s1, 8		// skip next command
 	NEXT
 
 /*
@@ -1078,29 +1090,29 @@ code_\label :			// assembler code follows
 	defcode "!",1,,STORE, LIT
 	POP a0			// address to store at
 	POP a1			// data to store there
-	sw a1, 0(a0)	// store it
+	sd a1, 0(a0)	// store it
 	NEXT
 
 	defcode "@",1,,FETCH, STORE
 	POP a0			// address to fetch
-	lw a1, 0(a0)	// fetch it
+	ld a1, 0(a0)	// fetch it
 	PUSH a1			// push value onto stack
 	NEXT
 
 	defcode "+!",2,,ADDSTORE, FETCH
 	POP a0			// address
 	POP a1			// the amount to add
-	lw a2, 0(a0)
-	addw a3, a1, a2	// add it
-	sw a3, 0(a0)
+	ld a2, 0(a0)
+	add a3, a1, a2	// add it
+	sd a3, 0(a0)
 	NEXT
 
 	defcode "-!",2,,SUBSTORE, ADDSTORE
 	POP a0		// address
 	POP a1		// the amount to subtract
-	lw a2, 0(a0)
-	subw a3, a2, a1
-	sw a3, 0(a0)
+	ld a2, 0(a0)
+	sub a3, a2, a1
+	sd a3, 0(a0)
 	NEXT
 
 /*
@@ -1129,7 +1141,7 @@ code_\label :			// assembler code follows
 	lb a2, 0(a1)		// get source character
 	sb a2, 0(a0)		// copy to destination
 	PUSH a0			// increment destination address
-	addiw a1, a1, 4		// increment source address
+	addi a1, a1, 8		// increment source address
 	PUSH a1
 	NEXT
 
@@ -1147,23 +1159,23 @@ code_\label :			// assembler code follows
 	a2: source address
 */
 _COPY_BYTES:
-	slti a4, a0, 4		// jump to copy byte if length is < 4
+	slti a4, a0, 8		// jump to copy byte if length is < 4
 	bnez a4, 2f
 1:	// copy word by word
-	lw a3, 0(a2)
-	sw a3, 0(a1)		// copy source to destination
-	addiw a0, a0, -4		// update length, destination, source
+	ld a3, 0(a2)
+	sd a3, 0(a1)		// copy source to destination
+	addi a0, a0, -8		// update length, destination, source
 	beqz a0, 3f
-	addiw a1, a1, 4
-	addiw a2, a2, 4
-	slti a4, a0, 4		// check if length is < 4
+	addi a1, a1, 8
+	addi a2, a2, 8
+	slti a4, a0, 8		// check if length is < 8
 	beqz a4, 1b
 2:	// copy byte
 	lb a3, 0(a2)
 	sb a3, 0(a1)
-	addiw a0, a0, -1
-	addiw a1, a1, 1
-	addiw a2, a2, 1
+	addi a0, a0, -1
+	addi a1, a1, 1
+	addi a2, a2, 1
 	bnez a0, 2b
 3:
 	ret
@@ -1189,9 +1201,9 @@ _COPY_BYTES:
 	PUSH t0
 	NEXT
 	.data
-	.balign 4
+	.balign 8
 var_\name :
-	.int \initial
+	.dword \initial
 	.endm
 
 /*
@@ -1295,7 +1307,7 @@ var_\name :
 	NEXT
 
 	defcode "RDROP",5,,RDROP, RSPSTORE
-	addi fp, fp, 4		// pop return stack and throw away
+	addi fp, fp, 8		// pop return stack and throw away
 	NEXT
 
 /*
@@ -1360,29 +1372,29 @@ var_\name :
 	NEXT
 _KEY:
 	la t1, currkey
-	lw a1, 0(t1)
+	ld a1, 0(t1)
 	la t0, bufftop
-	lw t0, 0(t0)
+	ld t0, 0(t0)
 	sltu a2, a1, t0
 	beqz a2, 1f			// exhausted the input buffer?
 	lb a0, 0(a1)		// get next key from input buffer
-	addiw a3, a1, 1
-	sw a3, 0(t1)		// increment currkey
+	addi a3, a1, 1
+	sd a3, 0(t1)		// increment currkey
 	ret
 
 1:	// Out of input; use read(2) to fetch more input from stdin.
 	mv a0, zero			// 1st param: stdin
 	la a1, buffer		// 2nd param: buffer
 	la t0, currkey
-	sw a1, 0(t0)
+	sd a1, 0(t0)
 	li a2, BUFFER_SIZE	// 3rd param: max length
 	li a7, __NR_read	// syscall: read
 	ecall
 	slt t0, zero, a0	// If a0 <= 0, then exit.
 	beqz t0, 2f
-	addw a0, a0, a1		// buffer+a0 = bufftop
+	add a0, a0, a1		// buffer+a0 = bufftop
 	la t0, bufftop
-	sw a0, 0(t0)
+	sd a0, 0(t0)
 	j _KEY
 
 2:	// Error or end of input: exit the program.
@@ -1390,11 +1402,11 @@ _KEY:
 	ecall
 
 	.data
-	.balign 4
+	.balign 8
 currkey:
-	.int buffer		// Current place in input buffer (next character to read).
+	.dword buffer		// Current place in input buffer (next character to read).
 bufftop:
-	.int buffer		// Last valid data in input buffer + 1.
+	.dword buffer		// Last valid data in input buffer + 1.
 
 /*
 	By contrast, output is much simpler.  The FORTH word EMIT writes out a single byte to stdout.
@@ -1470,7 +1482,7 @@ _WORD:
 	/* Search for first non-blank character.  Also skip \ comments. */
 1:
 	RCALL _KEY		// get next key, returned in a0
-	addiw a1, a0, -'\\'	// start of a comment?
+	addi a1, a0, -'\\'	// start of a comment?
 	beqz a1, 4f		// if so, skip the comment
 	IS_BLANK a1, a0
 	beqz a1, 1b		// if so, keep looking
@@ -1479,7 +1491,7 @@ _WORD:
 	la a2, word_buffer	// pointer to return buffer
 2:
 	sb a0, 0(a2)		// add character to return buffer
-	addiw a2, a2, 1
+	addi a2, a2, 1
 	PUSH a2
 	RCALL _KEY		// get next key, returned in a0
 	POP a2
@@ -1489,18 +1501,18 @@ _WORD:
 3:
 	/* Return the word (well, the static buffer) and length. */
 	la a0, word_buffer	// return address of the word
-	subw a1, a2, a0		// return length of the word
+	sub a1, a2, a0		// return length of the word
 	ret
 
 	/* Code to skip \ comments to end of the current line. */
 4:
 	RCALL _KEY
-	addiw a1, a0, -'\n'	// end of line yet?
+	addi a1, a0, -'\n'	// end of line yet?
 	bnez a1, 4b
 	j 1b
 
 	.data			// NB: easier to fit in the .data section
-	.balign 4
+	.balign 8
 	// A static buffer where WORD returns.  Subsequent calls
 	// overwrite this buffer.  Maximum word length is 32 chars.
 word_buffer:
@@ -1535,14 +1547,14 @@ _NUMBER:
 	beqz a1, 5f		// trying to parse a zero-length string is an error, but will return 0.
 
 	la a3, var_BASE
-	lw a3, 0(a3)		// get BASE
+	ld a3, 0(a3)		// get BASE
 
 	// Check if first character is '-'.
 	lb a4, 0(a2)		// a4 = first character in string
-	addiw a2, a2, 1
-	addiw a5, a4, -'-'	// negative number?
+	addi a2, a2, 1
+	addi a5, a4, -'-'	// negative number?
 	bnez a5, 2f		// number is negative if a5 = 0
-	addiw a1, a1, -1
+	addi a1, a1, -1
 	bnez a1, 1f
 	li a1, 1		// error: string is only '-'.
 	ret
@@ -1550,24 +1562,24 @@ _NUMBER:
 	// Loop reading digits.
 1:	mul a0, a0, a3		// a0 *= BASE
 	lb a4, 0(a2)		// a4 = next character in string
-	addiw a2, a2, 1
+	addi a2, a2, 1
 
 	// Convert 0-9, A-Z to a number 0-35.
 2:	sltiu t0, a4, '0'	// < '0'?
 	bnez t0, 4f
-	addiw a4, a4, -'0'
+	addi a4, a4, -'0'
 	sltiu t0, a4, 10	// <= '9'?
 	bnez t0, 3f
 	sltiu t0, a4, 17	// < 'A'? (17 is 'A' - '0')
 	bnez t0, 4f
-	addiw a4, a4, -7	// Char - 'A' + 10
+	addi a4, a4, -7	// Char - 'A' + 10
 
 3:	slt t0, a4, a3		// >= BASE?
 	beqz t0, 4f
 
 	// OK, so add it to a0 and loop.
-	addw a0, a0, a4
-	addiw a1, a1, -1
+	add a0, a0, a4
+	addi a1, a1, -1
 	bnez a1, 1b
 
 4:	// Negate the result if first character was '-' (a5 = 0?).
@@ -1610,33 +1622,33 @@ _NUMBER:
 _FIND:
 	// Now we start searching backwards through the dictionary for this word.
 	la a0, var_LATEST	// LATEST points to name header of the latest word in the dictionary
-	lw a0, 0(a0)
+	ld a0, 0(a0)
 1:	beqz a0, 4f		// NULL pointer?  (end of the linked list)
 
 	// Compare the length expected and the length of the word.
 	// Note that if the F_HIDDEN flag is set on the word, then by a bit of trickery
 	// this won't pick the word (the length will appear to be wrong).
-	lb a3, 4(a0)		// a0 = flags+length field
+	lb a3, 8(a0)		// a0 = flags+length field
 	andi a3, a3, (F_HIDDEN|F_LENMASK) // a0 = name length
-	subw t0, a3, a1		// Length is the same?
+	sub t0, a3, a1		// Length is the same?
 	bnez t0, 3f
 
 	// Compare the strings in detail.
 	mv t0, a0
 	mv t2, a2
-2:	lb t1, 5(t0) 		// Dictionary string we are checking against.
+2:	lb t1, 9(t0) 		// Dictionary string we are checking against.
 	lb t3, 0(t2)
-	subw t1, t1, t3		// Compare the strings.
+	sub t1, t1, t3		// Compare the strings.
 	bnez t1, 3f		// Not the same.
-	addiw t0, t0, 1
-	addiw t2, t2, 1
-	addiw a3, a3, -1
+	addi t0, t0, 1
+	addi t2, t2, 1
+	addi a3, a3, -1
 	bnez a3, 2b
 
 	// The strings are the same - return the header pointer in a0
 	ret
 
-3:	lw a0, 0(a0)		// Move back through the link field to the previous word
+3:	ld a0, 0(a0)		// Move back through the link field to the previous word
 	j 1b			// .. and loop.
 
 4:	// Not found.
@@ -1680,12 +1692,12 @@ _FIND:
 	PUSH a0
 	NEXT
 _TCFA:
-	lb a1, 4(a0)		// Load flags+len into a0.
+	lb a1, 8(a0)		// Load flags+len into a0.
 	andi a1, a1, F_LENMASK	// Just the length, not the flags.
-	addiw a0, a0, 5		// Skip link pointer and flags+len byte.
-	addw a0, a0, a1		// Skip the name.
-	addiw a0, a0, 3		// The codeword is 4-byte aligned.
-	andi a0, a0, ~3
+	addi a0, a0, 9		// Skip link pointer and flags+len byte.
+	add a0, a0, a1		// Skip the name.
+	addi a0, a0, 7		// The codeword is 4-byte aligned.
+	andi a0, a0, ~7
 	ret
 
 /*
@@ -1710,9 +1722,9 @@ _TCFA:
 */
 
 	defword ">DFA",4,,TDFA, TCFA
-	.int TCFA		// >CFA		(get code field address)
-	.int INCR4		// 4+		(add 4 to it to get to next word)
-	.int EXIT		// EXIT		(return from FORTH word)
+	.dword TCFA		// >CFA		(get code field address)
+	.dword INCR8		// 4+		(add 4 to it to get to next word)
+	.dword EXIT		// EXIT		(return from FORTH word)
 
 /*
 	COMPILING ----------------------------------------------------------------------
@@ -1874,31 +1886,31 @@ _TCFA:
 	// Link pointer.
 
 	la a1, var_HERE		// a1 is the address of the header
-	lw a1, 0(a1)
+	ld a1, 0(a1)
 	la a3, var_LATEST	
-	lw t0, 0(a3)		// Get link pointer
-	sw t0, 0(a1)		// and store it in the header.
-	addi a1, a1, 4
+	ld t0, 0(a3)		// Get link pointer
+	sd t0, 0(a1)		// and store it in the header.
+	addi a1, a1, 8
 
 	// Length byte and the word itself.
 
 	sb a0, 0(a1)		// Store the length/flags byte.
-	addiw a1, a1, 1
+	addi a1, a1, 1
 	PUSH a0			// save length and destination address
 	PUSH a1
 	RCALL _COPY_BYTES	// Copy the word
 	POP a1
 	POP a0
-	addw a1, a1, a0		// a1 is the address of the end of word
-	addiw a1, a1, 3		// Align to next 4 byte boundary.
-	andi a1, a1, ~3
+	add a1, a1, a0		// a1 is the address of the end of word
+	addi a1, a1, 7		// Align to next 4 byte boundary.
+	andi a1, a1, ~7
 
 	// Update LATEST and HERE.
 	la t0, var_HERE
 	la t1, var_LATEST
-	lw t2, 0(t0)
-	sw t2, 0(t1)
-	sw a1, 0(t0)
+	ld t2, 0(t0)
+	sd t2, 0(t1)
+	sd a1, 0(t0)
 	NEXT
 
 /*
@@ -1930,10 +1942,10 @@ _TCFA:
 	NEXT
 _COMMA:
 	la t0, var_HERE		// HERE
-	lw t1, 0(t0)
-	sw a0, 0(t1)		// Store it.
-	addiw t1, t1, 4		// Increment
-	sw t1, 0(t0)		// Update HERE
+	ld t1, 0(t0)
+	sd a0, 0(t1)		// Store it.
+	addi t1, t1, 8		// Increment
+	sd t1, 0(t0)		// Update HERE
 	ret
 
 /*
@@ -1957,13 +1969,13 @@ _COMMA:
 
 	defcode "[",1,F_IMMED,LBRAC, COMMA
 	la t0, var_STATE
-	sw zero, 0(t0)	// Set STATE to 0.
+	sd zero, 0(t0)	// Set STATE to 0.
 	NEXT
 
 	defcode "]",1,,RBRAC, LBRAC
 	la t0, var_STATE
 	la t1, 1
-	sw t1, 0(t0)	// Set STATE to 1.
+	sd t1, 0(t0)	// Set STATE to 1.
 	NEXT
 
 /*
@@ -1972,22 +1984,22 @@ _COMMA:
 */
 
 	defword ":",1,,COLON, RBRAC
-	.int WORD		// Get the name of the new word
-	.int CREATE		// CREATE the dictionary entry / header
-	.int LIT, DOCOL, COMMA	// Append DOCOL  (the codeword).
-	.int LATEST, FETCH, HIDDEN // Make the word hidden (see below for definition).
-	.int RBRAC		// Go into compile mode.
-	.int EXIT		// Return from the function.
+	.dword WORD		// Get the name of the new word
+	.dword CREATE		// CREATE the dictionary entry / header
+	.dword LIT, DOCOL, COMMA	// Append DOCOL  (the codeword).
+	.dword LATEST, FETCH, HIDDEN // Make the word hidden (see below for definition).
+	.dword RBRAC		// Go into compile mode.
+	.dword EXIT		// Return from the function.
 
 /*
 	; (SEMICOLON) is also elegantly simple.  Notice the F_IMMED flag.
 */
 
 	defword ";",1,F_IMMED,SEMICOLON, COLON
-	.int LIT, EXIT, COMMA	// Append EXIT (so the word will return).
-	.int LATEST, FETCH, HIDDEN // Toggle hidden flag -- unhide the word (see below for definition).
-	.int LBRAC		// Go back to IMMEDIATE mode.
-	.int EXIT		// Return from the function.
+	.dword LIT, EXIT, COMMA	// Append EXIT (so the word will return).
+	.dword LATEST, FETCH, HIDDEN // Toggle hidden flag -- unhide the word (see below for definition).
+	.dword LBRAC		// Go back to IMMEDIATE mode.
+	.dword EXIT		// Return from the function.
 
 /*
 	EXTENDING THE COMPILER ----------------------------------------------------------------------
@@ -2019,8 +2031,8 @@ _COMMA:
 
 	defcode "IMMEDIATE",9,F_IMMED,IMMEDIATE,SEMICOLON
 	la a0, var_LATEST	// LATEST word.
-	lw a0, 0(a0)
-	addiw a0, a0, 4		// Point to name/flags byte.
+	ld a0, 0(a0)
+	addi a0, a0, 8		// Point to name/flags byte.
 	lb t0, 0(a0)
 	xori t0, t0, F_IMMED	// Toggle the IMMED bit.
 	sb t0, 0(a0)
@@ -2050,17 +2062,17 @@ _COMMA:
 
 	defcode "HIDDEN",6,,HIDDEN,IMMEDIATE
 	POP a0			// Dictionary entry.
-	addiw a0, a0, 4		// Point to name/flags byte.
+	addi a0, a0, 8		// Point to name/flags byte.
 	lb t0, 0(a0)
 	xori t0, t0, F_HIDDEN	// Toggle the HIDDEN bit.
 	sb t0, 0(a0)
 	NEXT
 
 	defword "HIDE",4,,HIDE,HIDDEN
-	.int WORD		// Get the word (after HIDE).
-	.int FIND		// Look up in the dictionary.
-	.int HIDDEN		// Set F_HIDDEN flag.
-	.int EXIT		// Return.
+	.dword WORD		// Get the word (after HIDE).
+	.dword FIND		// Look up in the dictionary.
+	.dword HIDDEN		// Set F_HIDDEN flag.
+	.dword EXIT		// Return.
 
 /*
 	' (TICK) is a standard FORTH word which returns the codeword pointer of the next word.
@@ -2091,9 +2103,9 @@ _COMMA:
 	immediate mode too.
 */
 	defcode "'",1,,TICK,HIDE
-	lw t0, 0(s1)		// Get the address of the next word and skip it.
+	ld t0, 0(s1)		// Get the address of the next word and skip it.
 	PUSH t0			// Push it on the stack.
-	addi s1, s1, 4
+	addi s1, s1, 8
 	NEXT
 
 /*
@@ -2138,14 +2150,14 @@ _COMMA:
 */
 
 	defcode "BRANCH",6,,BRANCH,TICK
-	lw t0, 0(s1)
+	ld t0, 0(s1)
 	add s1, s1, t0		// add the offset to the instruction pointer
 	NEXT
 
 	defcode "0BRANCH",7,,ZBRANCH,BRANCH
 	POP t0			// top of stack is zero?
 	beqz t0, code_BRANCH	// if so, jump back to the branch function above
-	addi s1, s1, 4		// otherwise we need to skip the offset
+	addi s1, s1, 8		// otherwise we need to skip the offset
 	NEXT
 
 /*
@@ -2159,13 +2171,13 @@ _COMMA:
 */
 
 	defcode "LITSTRING",9,,LITSTRING,ZBRANCH
-	lw a0, 0(s1)		// get the length of the string
-	addi s1, s1, 4
+	ld a0, 0(s1)		// get the length of the string
+	addi s1, s1, 8
 	PUSH s1			// push the address of the start of the string
-	push a0			// push it on the stack
+	PUSH a0			// push it on the stack
 	add s1, s1, a0		// skip past the string
- 	addi s1, s1, 3		// but round up to next 4 byte boundary
-	andi s1, s1, ~3
+ 	addi s1, s1, 7		// but round up to next 4 byte boundary
+	andi s1, s1, ~7
 	NEXT
 
 	defcode "TELL",4,,TELL,LITSTRING
@@ -2191,9 +2203,9 @@ _COMMA:
 
 	// QUIT must not return (ie. must not call EXIT).
 	defword "QUIT",4,,QUIT,TELL
-	.int RZ,RSPSTORE	// R0 RSP!, clear the return stack
-	.int INTERPRET		// interpret the next word
-	.int BRANCH,-8		// and loop (indefinitely)
+	.dword RZ,RSPSTORE	// R0 RSP!, clear the return stack
+	.dword INTERPRET		// interpret the next word
+	.dword BRANCH,-16		// and loop (indefinitely)
 
 /*
 	This interpreter is pretty simple, but remember that in FORTH you can always override
@@ -2209,7 +2221,7 @@ _COMMA:
 	beqz a0, 1f
 
 	// In the dictionary.  Is it an IMMEDIATE codeword?
-	lb t0, 4(a0)		// Get name+flags.
+	lb t0, 8(a0)		// Get name+flags.
 	PUSH t0			// Just save it for now.
 	RCALL _TCFA		// Convert dictionary entry (in a0) to codeword pointer.
 	POP t0
@@ -2219,7 +2231,7 @@ _COMMA:
 	j 2f
 
 1:	// Not in the dictionary (not a word) so assume it's a literal number.
-	addiw s2, s2, 1		// inc interpret_is_lit
+	addi s2, s2, 1		// inc interpret_is_lit
 	RCALL _NUMBER		// Returns the parsed number in a0, a1 > 0 if error
 	bnez a1, 6f
 	mv a1, a0
@@ -2227,7 +2239,7 @@ _COMMA:
 
 2:	// Are we compiling or executing?
 	la t1, var_STATE
-	lw t0, 0(t1)
+	ld t0, 0(t1)
 	beqz t0, 4f		// Jump if executing.
 
 	// Compiling - just append the word to the current dictionary definition.
@@ -2242,7 +2254,7 @@ _COMMA:
 
 	// Not a literal, execute it now.  This never returns, but the codeword will
 	// eventually call NEXT which will reenter the loop in QUIT.
-	lw t0, 0(a0)
+	ld t0, 0(a0)
 	jr t0
 
 5:	// Executing a literal, which means push it on the stack.
@@ -2254,19 +2266,19 @@ _COMMA:
 	li a0, 2		// 1st param: stderr
 	la a1, errmsg		// 2nd param: error message
 	la t0, errmsgend
-	subw a2, t0, a1		// 3rd param: length of string
+	sub a2, t0, a1		// 3rd param: length of string
 	li a7, __NR_write	// write syscall
 	ecall
 
 	la a1, currkey		// the error occurred just before currkey position
-	lw a1, 0(a1)
+	ld a1, 0(a1)
 	la t0, buffer
-	subw a2, a1, t0		// a2 = currkey - buffer (length in buffer before currkey)
+	sub a2, a1, t0		// a2 = currkey - buffer (length in buffer before currkey)
 	li t2, 40
 	slt t0, t2, a2		// if > 40, then print only 40 characters
 	beqz t0, 7f
 	li a2, 40
-7:	subw a1, a1, a2		// a1 = start of area to print, a2 = length
+7:	sub a1, a1, a2		// a1 = start of area to print, a2 = length
 	li a0, 2
 	li a7, __NR_write	// write syscall
 	ecall
@@ -2285,7 +2297,7 @@ errmsgend:
 errmsgnl: .ascii "\n"
 
 	.data			// NB: easier to fit in the .data section
-	.balign 4
+	.balign 8
 
 /*
 	ODDS AND ENDS ----------------------------------------------------------------------
@@ -2313,7 +2325,7 @@ errmsgnl: .ascii "\n"
 
 	defcode "EXECUTE",7,,EXECUTE,CHAR
 	POP a0			// Get xt into a0
-	lw t0, 0(a0)
+	ld t0, 0(a0)
 	jr t0			// and jump to it.
 				// After xt runs its NEXT will continue executing the current word.
 
@@ -2378,9 +2390,9 @@ set_up_data_segment:
 	li a7, __NR_brk
 	ecall
 	la t0, var_HERE		// Initialise HERE to point at beginning of data segment.
-	sw a0, 0(t0)
+	sd a0, 0(t0)
 	li t0, INITIAL_DATA_SEGMENT_SIZE
-	addw a0, a0, t0		// Reserve nn bytes of memory for initial data segment.
+	add a0, a0, t0		// Reserve nn bytes of memory for initial data segment.
 	li a7, __NR_brk		// Call brk(HERE+INITIAL_DATA_SEGMENT_SIZE)
 	ecall
 	ret
