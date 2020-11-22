@@ -27,3 +27,8 @@ Compile & Run:
 3. Run all tests: `make test`
 
 > We haven't passed all tests yet: [issue #1](https://github.com/jjyr/jonesforth_riscv/issues/1)
+
+## RISC-V references
+
+* [RISCV Specification](https://riscv.org/technical/specifications/)
+* [RISC-V Assembly Programmer's Manual](https://github.com/riscv/riscv-asm-manual/blob/master/riscv-asm.md)
