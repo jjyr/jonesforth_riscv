@@ -488,14 +488,46 @@
 */
 
 /* Macros to deal with the return stack. */
-	.macro PUSH reg
-	addi sp, sp, -8			// push reg on to stack
-	sd \reg, 0(sp)
+	.macro PUSH regs:vararg
+	PUSH_ADJ 0, \regs		// push reg on to stack
+	PUSH_REGS \regs
 	.endm
 
-	.macro POP reg
-	ld \reg, 0(sp)			// pop top of return stack to reg
-	addi sp, sp, 8
+	.macro PUSH_ADJ depth reg regs:vararg
+	.ifb \regs
+	addi sp,sp,\depth-8
+	.else
+	PUSH_ADJ \depth-8, \regs
+	.endif
+	.endm
+
+	.macro PUSH_REG dst off reg="" regs:vararg
+	.ifb \reg
+	sd \dst,(\off)(sp)
+	.else
+	PUSH_REG \dst, \off+8, \regs
+	.endif
+	.endm
+
+	.macro PUSH_REGS reg regs:vararg
+	.ifb \regs
+	.else
+	PUSH_REGS \regs
+	.endif
+	PUSH_REG \reg 0 \regs
+	.endm
+
+	.macro POP regs:vararg
+	POP_R 0, \regs			// pop regs off the stack
+	.endm
+
+	.macro POP_R depth reg regs:vararg
+	ld \reg,\depth(sp)
+	.ifb \regs
+	addi sp,sp,\depth+8
+	.else
+	POP_R \depth+8, \regs
+	.endif
 	.endm
 
 	.macro PUSHRSP reg
@@ -734,10 +766,8 @@ code_\label :			// assembler code follows
 	NEXT
 
 	defcode "SWAP",4,,SWAP, DROP
-	POP a0		// swap top two elements on stack
-	POP a1
-	PUSH a0
-	PUSH a1
+	POP a0 a1	// swap top two elements on stack
+	PUSH a0 a1
 	NEXT
 
 	defcode "DUP",3,,DUP, SWAP
@@ -751,44 +781,28 @@ code_\label :			// assembler code follows
 	NEXT
 
 	defcode "ROT",3,,ROT, OVER
-	POP a0
-	POP a1
-	POP a2
-	PUSH a1
-	PUSH a0
-	PUSH a2
+	POP a0 a1 a2
+	PUSH a1 a0 a2
 	NEXT
 
 	defcode "-ROT",4,,NROT, ROT
-	POP a0
-	POP a1
-	POP a2
-	PUSH a0
-	PUSH a2
-	PUSH a1
+	POP a0 a1 a2
+	PUSH a0 a2 a1
 	NEXT
 
 	defcode "2DROP",5,,TWODROP, NROT // drop top two elements of stack
-	POP a0
-	POP a0
+	POP a0 a0
 	NEXT
 
 	defcode "2DUP",4,,TWODUP, TWODROP // duplicate top two elements of stack
 	ld a0, 0(sp)
 	ld a1, 8(sp)
-	PUSH a1
-	PUSH a0
+	PUSH a1 a0
 	NEXT
 
 	defcode "2SWAP",5,,TWOSWAP, TWODUP // swap top two pairs of elements of stack
-	POP a0
-	POP a1
-	POP a2
-	POP a3
-	PUSH a1
-	PUSH a0
-	PUSH a3
-	PUSH a2
+	POP a0 a1 a2 a3
+	PUSH a1 a0 a3 a2
 	NEXT
 
 	defcode "?DUP",4,,QDUP, TWOSWAP	// duplicate top of stack if non-zero
@@ -834,22 +848,19 @@ code_\label :			// assembler code follows
 	NEXT
 
 	defcode "+",1,,ADD, DECR8
-	POP a0		// get top of stack
-	POP a1		// get second of stack
+	POP a0 a1	// get top and second of stack
 	add a0, a0, a1	// and add the two number
 	PUSH a0         // push back the result to stack
 	NEXT
 
 	defcode "-",1,,SUB, ADD
-	POP a0		// get top of stack
-	POP a1		// get second of stack
+	POP a0 a1	// get top and second of stack
 	sub a0, a1, a0	// and subtract the two number
 	PUSH a0         // push back the result to stack
 	NEXT
 
 	defcode "*",1,,MUL, SUB
-	POP a0
-	POP a1
+	POP a0 a1
 	mul a0, a0, a1
 	PUSH a0		// ignore overflow
 	NEXT
@@ -867,12 +878,10 @@ code_\label :			// assembler code follows
 	of performing two separate divides.
 */
 	defcode "/MOD",4,,DIVMOD, MUL
-	POP a0,
-	POP a1,
+	POP a0 a1
 	div a3, a1, a0
 	rem a4, a1, a0
-	PUSH a4		// push remainder
-	PUSH a3		// push quotient
+	PUSH a4 a3	// push a4 = remained  a3 = quotient
 	NEXT
 
 /*
@@ -885,38 +894,33 @@ code_\label :			// assembler code follows
 */
 
 	defcode "=",1,,EQU, DIVMOD	// top two words are equal?
-	POP a0
-	POP a1
+	POP a0 a1
 	sub a0, a0, a1
 	seqz a0, a0             // set a0 to 1 if a0 is zero
 	PUSH a0
 	NEXT
 
 	defcode "<>",2,,NEQU, EQU	// top two words are not equal?
-	POP a0
-	POP a1
+	POP a0 a1
 	sub a0, a0, a1
 	sltu a0, zero, a0         // set a0 to 1 if a0 is not equals to zero, otherwise set a0 to 0
 	PUSH a0
 	NEXT
 
 	defcode "<",1,,LT, NEQU
-	POP a0
-	POP a1
+	POP a0 a1
 	slt a0, a1, a0          // set a0 to 1 if a1 < a0, otherwise set a0 to 0
 	PUSH a0
 	NEXT
 
 	defcode ">",1,,GT, LT
-	POP a0
-	POP a1
+	POP a0 a1
 	slt a0, a0, a1          // set a0 to 1 if a0 < a1, otherwise set a0 to 0
 	PUSH a0
 	NEXT
 
 	defcode "<=",2,,LE, GT
-	POP a0
-	POP a1
+	POP a0 a1
 	slt t0, a0, a1 // if a1 <= a0, then !(a0 < a1)
 	li t1, 1
 	sub t0, t1, t0
@@ -924,8 +928,7 @@ code_\label :			// assembler code follows
 	NEXT
 
 	defcode ">=",2,,GE, LE
-	POP a0
-	POP a1
+	POP a0 a1
 	slt t0, a1, a0          // if a1 >= a0, then !(a1 < a0)
 	li t1, 1
 	sub t0, t1, t0
@@ -973,22 +976,19 @@ code_\label :			// assembler code follows
 	NEXT
 
 	defcode "AND",3,,AND, ZGE	// bitwise AND
-	POP a0
-	POP a1
+	POP a0 a1
 	and a0, a0, a1
 	PUSH a0
 	NEXT
 
 	defcode "OR",2,,OR, AND	// bitwise OR
-	POP a0
-	POP a1
+	POP a0 a1
 	or a0, a0, a1
 	PUSH a0
 	NEXT
 
 	defcode "XOR",3,,XOR, OR	// bitwise XOR
-	POP a0
-	POP a1
+	POP a0 a1
 	xor a0, a0, a1
 	PUSH a0
 	NEXT
@@ -1088,8 +1088,7 @@ code_\label :			// assembler code follows
 */
 
 	defcode "!",1,,STORE, LIT
-	POP a0			// address to store at
-	POP a1			// data to store there
+	POP a0 a1		// a0 = address to store at  a1 = data to store there
 	sd a1, 0(a0)	// store it
 	NEXT
 
@@ -1100,16 +1099,14 @@ code_\label :			// assembler code follows
 	NEXT
 
 	defcode "+!",2,,ADDSTORE, FETCH
-	POP a0			// address
-	POP a1			// the amount to add
+	POP a0 a1		// a0 = address  a1 = the amount to add
 	ld a2, 0(a0)
 	add a3, a1, a2	// add it
 	sd a3, 0(a0)
 	NEXT
 
 	defcode "-!",2,,SUBSTORE, ADDSTORE
-	POP a0		// address
-	POP a1		// the amount to subtract
+	POP a0 a1	// a0 = address  a1 = the amount to subtract
 	ld a2, 0(a0)
 	sub a3, a2, a1
 	sd a3, 0(a0)
@@ -1123,8 +1120,7 @@ code_\label :			// assembler code follows
  */
 
 	defcode "C!",2,,STOREBYTE, SUBSTORE
-	POP a0			// address to store at
-	POP a1			// data to store there
+	POP a0 a1		// a0 = address to store at  a1 = data to store there
 	sb a1, 0(a0)	// store it
 	NEXT
 
@@ -1136,20 +1132,16 @@ code_\label :			// assembler code follows
 
 /* C@C! is a useful byte copy primitive. */
 	defcode "C@C!",4,,CCOPY, FETCHBYTE
-	POP a0			// destination address
-	POP a1			// source address
+	POP a0 a1		// a0 = destination address  a1 = source address
 	lb a2, 0(a1)		// get source character
 	sb a2, 0(a0)		// copy to destination
-	PUSH a0			// increment destination address
-	addi a1, a1, 8		// increment source address
-	PUSH a1
+	addi a1, a1, 8
+	PUSH a0 a1		// increment destination and source address
 	NEXT
 
 /* and CMOVE is a block copy operation. */
 	defcode "CMOVE",5,,CMOVE,CCOPY
-	POP a0			// length
-	POP a1			// destination address
-	POP a2			// source address
+	POP a0 a1 a2		// a0 = length  a1 = destination address  a2 = source address
 	RCALL _COPY_BYTES
 	NEXT
 
@@ -1475,8 +1467,7 @@ emit_scratch:
 
 	defcode "WORD",4,,WORD, EMIT
 	RCALL _WORD
-	PUSH a0		// push base address
-	PUSH a1		// push length
+	PUSH a0 a1	// push base address and length
 	NEXT
 
 _WORD:
@@ -1536,11 +1527,9 @@ word_buffer:
 	partial value if there was an error.
 */
 	defcode "NUMBER",6,,NUMBER, WORD
-	POP a1		// length of string
-	POP a2		// start address of string
+	POP a1 a2	// a1 = length of string  a2 = start address of string
 	RCALL _NUMBER
-	PUSH a0		// parsed number
-	PUSH a1		// number of unparsed characters (0 = no error)
+	PUSH a0 a1	// push parsed number and number of unparsed characters (0 = no error)
 	NEXT
 
 _NUMBER:
@@ -1614,8 +1603,7 @@ _NUMBER:
 */
 
 	defcode "FIND",4,,FIND, NUMBER
-	POP a1			// a1 = length
-	POP a2			// a2 = address
+	POP a1 a2		// a1 = length  a2 = address
 	RCALL _FIND
 	PUSH a0			// a0 = address of dictionary entry (or NULL)
 	NEXT
@@ -1881,8 +1869,7 @@ _TCFA:
 
 	// Get the name length and address.
 
-	POP a0		// a0 = length
-	POP a2		// a2 = address of name
+	POP a0 a2	// a0 = length  a2 = address of name
 
 	// Link pointer.
 
@@ -1897,11 +1884,9 @@ _TCFA:
 
 	sb a0, 0(a1)		// Store the length/flags byte.
 	addi a1, a1, 1
-	PUSH a0			// save length and destination address
-	PUSH a1
+	PUSH a0 a1		// save length and destination address
 	RCALL _COPY_BYTES	// Copy the word
-	POP a1
-	POP a0
+	POP a1 a0
 	add a1, a1, a0		// a1 is the address of the end of word
 	addi a1, a1, 7		// Align to next 8 byte boundary.
 	andi a1, a1, ~7
@@ -2174,8 +2159,7 @@ _COMMA:
 	defcode "LITSTRING",9,,LITSTRING,ZBRANCH
 	ld a0, 0(s1)		// get the length of the string
 	addi s1, s1, 8
-	PUSH s1			// push the address of the start of the string
-	PUSH a0			// push it on the stack
+	PUSH s1 a0		// push the address of the start and length of the string
 	add s1, s1, a0		// skip past the string
  	addi s1, s1, 7		// but round up to next 8 byte boundary
 	andi s1, s1, ~7
@@ -2183,8 +2167,7 @@ _COMMA:
 
 	defcode "TELL",4,,TELL,LITSTRING
 	li a0, 1		// 1st param: stdout
-	POP a2			// 3rd param: length of string
-	POP a1			// 2nd param: address of string
+	POP a2 a1		// a2 = 3rd param: length of string  a1 = 2nd param: address of string
 	li a7, __NR_write	// write syscall
 	ecall
 	NEXT
@@ -2331,25 +2314,19 @@ errmsgnl: .ascii "\n"
 				// After xt runs its NEXT will continue executing the current word.
 
 	defcode "SYSCALL3",8,,SYSCALL3,EXECUTE
-	POP a7			// System call number (see <asm/unistd.h>)
-	POP a0			// First parameter.
-	POP a1			// Second parameter
-	POP a2			// Third parameter
+	POP a7 a0 a1 a2		// a7 = System call number (see <asm/unistd.h>)  a0..a2 = parameters
 	ecall
 	PUSH a0			// Result (negative for -errno)
 	NEXT
 
 	defcode "SYSCALL2",8,,SYSCALL2,SYSCALL3
-	POP a7			// System call number (see <asm/unistd.h>)
-	POP a0			// First parameter.
-	POP a1			// Second parameter
+	POP a7 a0 a1		// a7 = System call number (see <asm/unistd.h>)  a0..a1 = parameters
 	ecall
 	PUSH a0			// Result (negative for -errno)
 	NEXT
 
 	defcode "SYSCALL1",8,,SYSCALL1,SYSCALL2
-	POP a7			// System call number (see <asm/unistd.h>)
-	POP a0			// First parameter.
+	POP a7 a0		// a7 = System call number (see <asm/unistd.h>)  a0 = parameter
 	ecall
 	PUSH a0			// Result (negative for -errno)
 	NEXT
